@@ -2,16 +2,35 @@
 
 :root {
     font-family: 'DM Sans', 'Segoe UI', sans-serif;
-    color: #252943;
-    background: #f6f7fb;
+    color: var(--text);
+    background: var(--page-bg);
     font-synthesis: none;
     text-rendering: optimizeLegibility;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
-    --purple: #6656d9;
-    --purple-dark: #5141bf;
-    --muted: #85899d;
-    --border: #e9ebf2;
+    color-scheme: light;
+    --page-bg: #f4f7f4;
+    --surface: #fffefa;
+    --text: #293b37;
+    --muted: #687a73;
+    --border: #e1e9e3;
+    --accent: #52786e;
+    --accent-strong: #3e6258;
+    --accent-soft: #e8f1eb;
+    --focus: #a9cbb8;
+}
+
+:root[data-theme="dark"] {
+    color-scheme: dark;
+    --page-bg: #1c2725;
+    --surface: #243330;
+    --text: #e5eee9;
+    --muted: #b0c0b9;
+    --border: #3a4b46;
+    --accent: #a5c9b6;
+    --accent-strong: #c3dfcf;
+    --accent-soft: #30443d;
+    --focus: #8ebba3;
 }
 
 * {
@@ -40,13 +59,13 @@ body {
     align-items: center;
     justify-content: space-between;
     border-bottom: 1px solid var(--border);
-    background: #fff;
+    background: var(--surface);
     padding: 0 36px;
 }
 
 .topbar h1 {
     margin: 0;
-    color: #282b47;
+    color: var(--text);
     font-family: 'Manrope', 'Segoe UI', sans-serif;
     font-size: 20px;
     font-weight: 800;
@@ -56,19 +75,19 @@ body {
 .user-info {
     display: flex;
     align-items: center;
-    gap: 18px;
+    gap: 14px;
 }
 
 .user-name {
-    color: #64687d;
+    color: var(--muted);
     font-size: 13px;
     font-weight: 600;
 }
 
 .logout-link {
-    border: 1px solid #e8e5fb;
+    border: 1px solid var(--border);
     border-radius: 8px;
-    color: var(--purple);
+    color: var(--accent-strong);
     font-size: 12px;
     font-weight: 700;
     padding: 8px 13px;
@@ -78,14 +97,48 @@ body {
 
 .logout-link:hover,
 .logout-link:focus-visible {
-    background: var(--purple);
-    color: #fff;
+    background: var(--accent-strong);
+    color: var(--page-bg);
+}
+
+.theme-switch {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--page-bg);
+    padding: 3px;
+}
+
+.theme-switch button {
+    min-height: 30px;
+    border: 0;
+    border-radius: 5px;
+    background: transparent;
+    color: var(--muted);
+    cursor: pointer;
+    font: inherit;
+    font-size: 11px;
+    font-weight: 700;
+    padding: 0 8px;
+    transition: background-color 160ms ease, color 160ms ease;
+}
+
+.theme-switch button[aria-pressed="true"] {
+    background: var(--accent-soft);
+    color: var(--accent-strong);
+}
+
+.theme-switch button:focus-visible {
+    outline: 2px solid var(--focus);
+    outline-offset: 2px;
 }
 
 .sidebar {
     grid-area: sidebar;
     border-right: 1px solid var(--border);
-    background: #fff;
+    background: var(--surface);
     padding: 27px 16px;
 }
 
@@ -103,7 +156,7 @@ body {
     min-height: 45px;
     align-items: center;
     border-radius: 9px;
-    color: #72768b;
+    color: var(--muted);
     font-size: 13px;
     font-weight: 600;
     padding: 0 13px;
@@ -113,7 +166,7 @@ body {
 
 .sidebar a::before {
     width: 25px;
-    color: #9b91e6;
+    color: var(--accent);
     font-size: 16px;
 }
 
@@ -140,14 +193,14 @@ body {
 .sidebar a:hover,
 .sidebar a:focus-visible {
     transform: translateX(2px);
-    background: #f3f1ff;
-    color: var(--purple);
+    background: var(--accent-soft);
+    color: var(--accent-strong);
     outline: none;
 }
 
 .sidebar li:first-child a {
-    background: #f0edff;
-    color: var(--purple);
+    background: var(--accent-soft);
+    color: var(--accent-strong);
 }
 
 .content {
@@ -160,7 +213,7 @@ body {
 
 .content h2 {
     margin: 0;
-    color: #282b47;
+    color: var(--text);
     font-family: 'Manrope', 'Segoe UI', sans-serif;
     font-size: clamp(25px, 3.2vw, 36px);
     font-weight: 800;
@@ -179,19 +232,19 @@ body {
 .footer {
     grid-area: footer;
     border-top: 1px solid var(--border);
-    background: #fff;
+    background: var(--surface);
     padding: 16px 24px;
     text-align: center;
 }
 
 .footer p {
     margin: 0;
-    color: #999caf;
+    color: var(--muted);
     font-size: 11px;
 }
 
 a:focus-visible {
-    outline: 3px solid #c9c1ff;
+    outline: 3px solid var(--focus);
     outline-offset: 3px;
 }
 
@@ -216,6 +269,12 @@ a:focus-visible {
 
     .user-info {
         gap: 10px;
+    }
+
+    .theme-switch button {
+        min-height: 28px;
+        font-size: 10px;
+        padding: 0 6px;
     }
 
     .user-name {
