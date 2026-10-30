@@ -335,6 +335,7 @@ body {
     position: relative;
     display: grid;
     gap: 7px;
+    margin-top: 19px;
     color: var(--muted);
     font-size: 12px;
     font-weight: 600;
@@ -661,6 +662,7 @@ a:focus-visible {
 
     .subject-picker {
         width: 100%;
+        margin-top: 0;
     }
 
     .subject-picker-trigger,
