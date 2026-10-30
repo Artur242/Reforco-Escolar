@@ -73,6 +73,38 @@ function setTheme(theme: 'light' | 'dark'): void {
 	});
 }
 
+function renderSubjectPicker(page: 'materials' | 'summaries'): string {
+	const optionsId = `${page}-subject-options`;
+	return `
+		<div class="subject-picker" data-subject-picker data-open="false">
+			<span class="subject-picker-label">Disciplina</span>
+			<button class="subject-picker-trigger" type="button" data-subject-trigger aria-expanded="false" aria-controls="${optionsId}">
+				<span class="subject-picker-value" data-selected-subject>Todas as disciplinas</span>
+				<svg class="subject-chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="m7 10 5 5 5-5" /></svg>
+			</button>
+			<div class="subject-options" id="${optionsId}" data-subject-options aria-hidden="true" inert>
+				<div class="subject-options-panel" role="group" aria-label="Filtrar por disciplina">
+					${categories.map((category) => `
+						<button class="subject-option" type="button" data-category="${category}" aria-pressed="${category === activeCategory}">
+							<span>${category === 'Todos' ? 'Todas as disciplinas' : category}</span>
+							<span class="subject-check" aria-hidden="true">&#10003;</span>
+						</button>
+					`).join('')}
+				</div>
+			</div>
+		</div>
+	`;
+}
+
+function setSubjectMenuOpen(picker: HTMLElement, isOpen: boolean): void {
+	picker.dataset.open = String(isOpen);
+	picker.querySelector<HTMLButtonElement>('[data-subject-trigger]')?.setAttribute('aria-expanded', String(isOpen));
+
+	const options = picker.querySelector<HTMLElement>('[data-subject-options]');
+	options?.setAttribute('aria-hidden', String(!isOpen));
+	options?.toggleAttribute('inert', !isOpen);
+}
+
 function renderMaterials(): void {
 	if (!pageContent) return;
 
@@ -165,12 +197,7 @@ function renderPage(page: Page): void {
 					<span class="visually-hidden">Buscar resumos</span>
 					<input type="search" placeholder="Buscar por tema ou disciplina" data-summary-search>
 				</label>
-				<label class="subject-picker">
-					<span>Disciplina</span>
-					<select data-summary-filter aria-label="Filtrar resumos por disciplina">
-						${categories.map((category) => `<option value="${category}">${category === 'Todos' ? 'Todas as disciplinas' : category}</option>`).join('')}
-					</select>
-				</label>
+				${renderSubjectPicker('summaries')}
 			</div>
 			<p class="materials-count" data-summary-count aria-live="polite"></p>
 			<div class="materials-grid" data-summary-list></div>
@@ -187,12 +214,7 @@ function renderPage(page: Page): void {
 					<span class="visually-hidden">Buscar materiais</span>
 					<input type="search" placeholder="Buscar por tema ou disciplina" data-material-search>
 				</label>
-				<label class="subject-picker">
-					<span>Disciplina</span>
-					<select data-material-filter aria-label="Filtrar por disciplina">
-						${categories.map((category) => `<option value="${category}">${category === 'Todos' ? 'Todas as disciplinas' : category}</option>`).join('')}
-					</select>
-				</label>
+				${renderSubjectPicker('materials')}
 			</div>
 			<p class="materials-count" data-material-count aria-live="polite"></p>
 			<div class="materials-grid" data-material-list></div>
@@ -200,19 +222,62 @@ function renderPage(page: Page): void {
 	`;
 
 	const searchSelector = isSummariesPage ? '[data-summary-search]' : '[data-material-search]';
-	const filterSelector = isSummariesPage ? '[data-summary-filter]' : '[data-material-filter]';
 	const searchInput = pageContent.querySelector<HTMLInputElement>(searchSelector);
 	searchInput?.addEventListener('input', (event) => {
 		searchQuery = (event.currentTarget as HTMLInputElement).value;
 		isSummariesPage ? renderSummaries() : renderMaterials();
 	});
 
-	pageContent.querySelector<HTMLSelectElement>(filterSelector)?.addEventListener('change', (event) => {
-		const category = (event.currentTarget as HTMLSelectElement).value;
-		if (!categories.includes(category as 'Todos' | Category)) return;
+	const subjectPicker = pageContent.querySelector<HTMLElement>('[data-subject-picker]');
+	const subjectTrigger = subjectPicker?.querySelector<HTMLButtonElement>('[data-subject-trigger]');
+	const subjectOptions = subjectPicker?.querySelector<HTMLElement>('[data-subject-options]');
+
+	if (subjectPicker && subjectTrigger) {
+		subjectTrigger.addEventListener('click', () => {
+			setSubjectMenuOpen(subjectPicker, subjectPicker.dataset.open !== 'true');
+		});
+	}
+
+	subjectPicker?.addEventListener('click', (event) => {
+		const option = (event.target as HTMLElement).closest<HTMLButtonElement>('[data-category]');
+		const category = option?.dataset.category;
+		if (!option || !categories.includes(category as 'Todos' | Category)) return;
 
 		activeCategory = category as 'Todos' | Category;
+		const selectedSubject = subjectPicker.querySelector<HTMLElement>('[data-selected-subject]');
+		if (selectedSubject) {
+			selectedSubject.textContent = activeCategory === 'Todos' ? 'Todas as disciplinas' : activeCategory;
+		}
+		subjectPicker.querySelectorAll<HTMLButtonElement>('[data-category]').forEach((button) => {
+			button.setAttribute('aria-pressed', String(button === option));
+		});
+		setSubjectMenuOpen(subjectPicker, false);
+		subjectTrigger?.focus();
 		isSummariesPage ? renderSummaries() : renderMaterials();
+	});
+
+	subjectPicker?.addEventListener('keydown', (event: KeyboardEvent) => {
+		if (event.key === 'Escape' && subjectPicker.dataset.open === 'true') {
+			event.preventDefault();
+			setSubjectMenuOpen(subjectPicker, false);
+			subjectTrigger?.focus();
+			return;
+		}
+
+		const target = event.target as HTMLElement;
+		if (target.closest('[data-subject-trigger]') && event.key === 'ArrowDown') {
+			event.preventDefault();
+			setSubjectMenuOpen(subjectPicker, true);
+			subjectOptions?.querySelector<HTMLButtonElement>('[aria-pressed="true"]')?.focus();
+			return;
+		}
+
+		if (!target.matches('[data-category]') || (event.key !== 'ArrowDown' && event.key !== 'ArrowUp')) return;
+		event.preventDefault();
+		const options = Array.from(subjectPicker.querySelectorAll<HTMLButtonElement>('[data-category]'));
+		const currentIndex = options.indexOf(target as HTMLButtonElement);
+		const offset = event.key === 'ArrowDown' ? 1 : -1;
+		options[(currentIndex + offset + options.length) % options.length]?.focus();
 	});
 
 	isSummariesPage ? renderSummaries() : renderMaterials();
@@ -239,6 +304,13 @@ pageLinks.forEach((link) => {
 });
 
 window.addEventListener('popstate', () => renderPage(pageFromHash()));
+
+document.addEventListener('pointerdown', (event) => {
+	const subjectPicker = pageContent?.querySelector<HTMLElement>('[data-subject-picker]');
+	if (subjectPicker?.dataset.open === 'true' && !subjectPicker.contains(event.target as Node)) {
+		setSubjectMenuOpen(subjectPicker, false);
+	}
+});
 
 themeButtons.forEach((button) => {
 	button.addEventListener('click', () => {
