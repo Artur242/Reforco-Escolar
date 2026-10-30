@@ -64,12 +64,71 @@ body {
 }
 
 .topbar h1 {
+    display: flex;
+    align-items: center;
+    gap: 10px;
     margin: 0;
     color: var(--text);
     font-family: 'Manrope', 'Segoe UI', sans-serif;
     font-size: 20px;
     font-weight: 800;
     letter-spacing: -0.7px;
+}
+
+.brand-mark {
+    width: 42px;
+    height: 42px;
+    flex: 0 0 auto;
+    overflow: visible;
+}
+
+.book-outline,
+.book-spine {
+    fill: none;
+    stroke: var(--text);
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    stroke-width: 4;
+}
+
+.book-detail {
+    fill: none;
+    stroke: var(--accent);
+    stroke-linecap: round;
+    stroke-width: 3;
+}
+
+.brand-sparkle,
+.brand-dot {
+    fill: #2fc5c3;
+    transform-box: fill-box;
+    transform-origin: center;
+}
+
+.sparkle-left {
+    animation: sparkle 2.4s ease-in-out infinite;
+}
+
+.sparkle-right {
+    animation: sparkle 2.4s ease-in-out 1.2s infinite;
+}
+
+.dot-left {
+    animation: twinkle 2.4s ease-in-out 0.4s infinite;
+}
+
+.dot-right {
+    animation: twinkle 2.4s ease-in-out 1.6s infinite;
+}
+
+@keyframes sparkle {
+    0%, 100% { opacity: 0.65; transform: scale(0.88) rotate(-8deg); }
+    50% { opacity: 1; transform: scale(1.08) rotate(8deg); }
+}
+
+@keyframes twinkle {
+    0%, 100% { opacity: 0.35; transform: scale(0.75); }
+    50% { opacity: 1; transform: scale(1.2); }
 }
 
 .user-info {
@@ -198,7 +257,7 @@ body {
     outline: none;
 }
 
-.sidebar li:first-child a {
+.sidebar a[aria-current="page"] {
     background: var(--accent-soft);
     color: var(--accent-strong);
 }
@@ -227,6 +286,156 @@ body {
     color: var(--muted);
     font-size: 15px;
     line-height: 1.8;
+}
+
+.materials-heading .section-label {
+    margin: 0 0 8px;
+    color: var(--accent-strong);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+}
+
+.materials-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-top: 28px;
+}
+
+.material-search {
+    flex: 1 1 230px;
+}
+
+.material-search input {
+    width: 100%;
+    min-height: 42px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--surface);
+    color: var(--text);
+    font: inherit;
+    font-size: 13px;
+    padding: 0 13px;
+}
+
+.material-search input::placeholder {
+    color: var(--muted);
+}
+
+.material-search input:focus-visible {
+    border-color: var(--focus);
+    outline: 2px solid var(--focus);
+    outline-offset: 2px;
+}
+
+.material-filters {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--surface);
+    padding: 4px;
+}
+
+.material-filters button {
+    min-height: 30px;
+    border: 0;
+    border-radius: 5px;
+    background: transparent;
+    color: var(--muted);
+    cursor: pointer;
+    font: inherit;
+    font-size: 11px;
+    font-weight: 700;
+    padding: 0 9px;
+}
+
+.material-filters button[aria-pressed="true"] {
+    background: var(--accent-soft);
+    color: var(--accent-strong);
+}
+
+.material-filters button:focus-visible {
+    outline: 2px solid var(--focus);
+    outline-offset: 2px;
+}
+
+.materials-count {
+    margin-top: 18px !important;
+    font-size: 12px !important;
+}
+
+.materials-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 250px), 1fr));
+    gap: 14px;
+    margin-top: 12px;
+}
+
+.material-card {
+    min-width: 0;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--surface);
+    padding: 18px;
+}
+
+.material-card-meta {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+}
+
+.material-subject {
+    border-radius: 5px;
+    background: var(--accent-soft);
+    color: var(--accent-strong);
+    font-size: 10px;
+    font-weight: 700;
+    padding: 5px 8px;
+}
+
+.material-format {
+    color: var(--muted);
+    font-size: 11px;
+}
+
+.material-card h3 {
+    margin: 16px 0 0;
+    color: var(--text);
+    font-family: 'Manrope', 'Segoe UI', sans-serif;
+    font-size: 16px;
+    font-weight: 700;
+}
+
+.material-card p {
+    margin-top: 8px;
+    font-size: 13px;
+    line-height: 1.65;
+}
+
+.empty-state {
+    grid-column: 1 / -1;
+    border: 1px dashed var(--border);
+    border-radius: 8px;
+    padding: 24px;
+    text-align: center;
+}
+
+.visually-hidden {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    clip-path: inset(50%);
 }
 
 .footer {
@@ -265,6 +474,11 @@ a:focus-visible {
 
     .topbar h1 {
         font-size: 17px;
+    }
+
+    .brand-mark {
+        width: 34px;
+        height: 34px;
     }
 
     .user-info {
@@ -343,5 +557,7 @@ a:focus-visible {
     *::after {
         scroll-behavior: auto !important;
         transition-duration: 0.01ms !important;
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
     }
 }

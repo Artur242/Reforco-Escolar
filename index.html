@@ -10,7 +10,18 @@
 
 <body>
     <header class="topbar">
-        <h1>Reforço Escolar</h1>
+        <h1 class="brand-title">
+            <svg class="brand-mark" viewBox="0 0 64 64" aria-hidden="true" focusable="false">
+                <path class="book-outline" d="M8 20c9-5 17-5 24 0 7-5 15-5 24 0v29c-9-4-17-4-24 1-7-5-15-5-24-1V20Z" />
+                <path class="book-spine" d="M32 20v30" />
+                <path class="book-detail" d="M14 28c5-2 9-2 13 0M14 35c5-2 9-2 13 0M38 28c4-2 8-2 12 0M38 35c4-2 8-2 12 0" />
+                <path class="brand-sparkle sparkle-left" d="m14 8 2 4 4 2-4 2-2 4-2-4-4-2 4-2 2-4Z" />
+                <path class="brand-sparkle sparkle-right" d="m51 5 2 5 5 2-5 2-2 5-2-5-5-2 5-2 2-5Z" />
+                <circle class="brand-dot dot-left" cx="27" cy="10" r="1.7" />
+                <circle class="brand-dot dot-right" cx="42" cy="13" r="1.7" />
+            </svg>
+            <span>Reforço Escolar</span>
+        </h1>
         <div class="user-info">
             <span class="user-name">Bem-vindo, Usuário!</span>
             <div class="theme-switch" role="group" aria-label="Escolher tema">
@@ -21,17 +32,17 @@
         </div>
     </header>
 
-    <div class="content">
+    <main class="content" id="page-content" tabindex="-1">
         <h2>Bem-vindo ao Reforço Escolar</h2>
         <p>Este é o seu painel de reforço escolar. Aqui você pode acessar materiais de estudo, acompanhar seu progresso
             e muito mais.</p>
-    </div>
+    </main>
 
     <div class="sidebar">
         <ul>
-            <li><a href="#">Início</a></li>
+            <li><a href="#home" data-page="home" aria-current="page">Início</a></li>
             <li><a href="#">Resumos</a></li>
-            <li><a href="#">Materiais</a></li>
+            <li><a href="#materials" data-page="materials">Materiais</a></li>
             <li><a href="#">Aula</a></li>
             <li><a href="#">Configurações</a></li>
         </ul>
