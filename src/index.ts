@@ -4,7 +4,7 @@ const pageLinks = document.querySelectorAll<HTMLAnchorElement>('[data-page]');
 const savedTheme = localStorage.getItem('theme');
 const initialTheme = savedTheme === 'dark' ? 'dark' : 'light';
 
-type Page = 'home' | 'materials';
+type Page = 'home' | 'materials' | 'summaries';
 type Category = 'Matemática' | 'Português' | 'Ciências';
 
 interface Material {
@@ -79,7 +79,7 @@ function renderMaterials(): void {
 	const normalizedQuery = searchQuery.trim().toLocaleLowerCase('pt-BR');
 	const filteredMaterials = materials.filter((material) => {
 		const matchesCategory = activeCategory === 'Todos' || material.subject === activeCategory;
-		const searchableText = `${material.title} ${material.subject} ${material.description} ${material.summary}`.toLocaleLowerCase('pt-BR');
+		const searchableText = `${material.title} ${material.subject} ${material.description}`.toLocaleLowerCase('pt-BR');
 		return matchesCategory && searchableText.includes(normalizedQuery);
 	});
 
@@ -97,10 +97,38 @@ function renderMaterials(): void {
 				</div>
 				<h3>${material.title}</h3>
 				<p>${material.description}</p>
-				<p class="material-summary"><strong>Resumo:</strong> ${material.summary}</p>
 			</article>
 		`).join('')
 		: '<p class="empty-state">Nenhum material encontrado. Tente outro termo ou disciplina.</p>';
+}
+
+function renderSummaries(): void {
+	if (!pageContent) return;
+
+	const normalizedQuery = searchQuery.trim().toLocaleLowerCase('pt-BR');
+	const filteredMaterials = materials.filter((material) => {
+		const matchesCategory = activeCategory === 'Todos' || material.subject === activeCategory;
+		const searchableText = `${material.title} ${material.subject} ${material.summary}`.toLocaleLowerCase('pt-BR');
+		return matchesCategory && searchableText.includes(normalizedQuery);
+	});
+
+	const list = pageContent.querySelector<HTMLElement>('[data-summary-list]');
+	const count = pageContent.querySelector<HTMLElement>('[data-summary-count]');
+	if (!list || !count) return;
+
+	count.textContent = `${filteredMaterials.length} ${filteredMaterials.length === 1 ? 'resumo encontrado' : 'resumos encontrados'}`;
+	list.innerHTML = filteredMaterials.length
+		? filteredMaterials.map((material) => `
+			<article class="material-card">
+				<div class="material-card-meta">
+					<span class="material-subject">${material.subject}</span>
+					<span class="material-format">${material.format}</span>
+				</div>
+				<h3>${material.title}</h3>
+				<p class="material-summary">${material.summary}</p>
+			</article>
+		`).join('')
+		: '<p class="empty-state">Nenhum resumo encontrado. Tente outro termo ou disciplina.</p>';
 }
 
 function renderPage(page: Page): void {
@@ -124,7 +152,30 @@ function renderPage(page: Page): void {
 
 	activeCategory = 'Todos';
 	searchQuery = '';
-	pageContent.innerHTML = `
+	const isSummariesPage = page === 'summaries';
+	pageContent.innerHTML = isSummariesPage ? `
+		<section class="materials-page" aria-labelledby="summaries-title">
+			<div class="materials-heading">
+				<p class="section-label">REVISÃO RÁPIDA</p>
+				<h2 id="summaries-title">Resumos</h2>
+				<p>Revise os principais conceitos de cada disciplina.</p>
+			</div>
+			<div class="materials-toolbar">
+				<label class="material-search">
+					<span class="visually-hidden">Buscar resumos</span>
+					<input type="search" placeholder="Buscar por tema ou disciplina" data-summary-search>
+				</label>
+				<label class="subject-picker">
+					<span>Disciplina</span>
+					<select data-summary-filter aria-label="Filtrar resumos por disciplina">
+						${categories.map((category) => `<option value="${category}">${category === 'Todos' ? 'Todas as disciplinas' : category}</option>`).join('')}
+					</select>
+				</label>
+			</div>
+			<p class="materials-count" data-summary-count aria-live="polite"></p>
+			<div class="materials-grid" data-summary-list></div>
+		</section>
+	` : `
 		<section class="materials-page" aria-labelledby="materials-title">
 			<div class="materials-heading">
 				<p class="section-label">BIBLIOTECA DE ESTUDOS</p>
@@ -148,33 +199,38 @@ function renderPage(page: Page): void {
 		</section>
 	`;
 
-	pageContent.querySelector<HTMLInputElement>('[data-material-search]')?.addEventListener('input', (event) => {
+	const searchSelector = isSummariesPage ? '[data-summary-search]' : '[data-material-search]';
+	const filterSelector = isSummariesPage ? '[data-summary-filter]' : '[data-material-filter]';
+	const searchInput = pageContent.querySelector<HTMLInputElement>(searchSelector);
+	searchInput?.addEventListener('input', (event) => {
 		searchQuery = (event.currentTarget as HTMLInputElement).value;
-		renderMaterials();
+		isSummariesPage ? renderSummaries() : renderMaterials();
 	});
 
-	pageContent.querySelector<HTMLSelectElement>('[data-material-filter]')?.addEventListener('change', (event) => {
+	pageContent.querySelector<HTMLSelectElement>(filterSelector)?.addEventListener('change', (event) => {
 		const category = (event.currentTarget as HTMLSelectElement).value;
 		if (!categories.includes(category as 'Todos' | Category)) return;
 
 		activeCategory = category as 'Todos' | Category;
-		renderMaterials();
+		isSummariesPage ? renderSummaries() : renderMaterials();
 	});
 
-	renderMaterials();
+	isSummariesPage ? renderSummaries() : renderMaterials();
 }
 
 function pageFromHash(): Page {
-	return window.location.hash === '#materials' ? 'materials' : 'home';
+	if (window.location.hash === '#materials') return 'materials';
+	if (window.location.hash === '#summaries') return 'summaries';
+	return 'home';
 }
 
 pageLinks.forEach((link) => {
 	link.addEventListener('click', (event) => {
 		const page = link.dataset.page;
-		if (page !== 'home' && page !== 'materials') return;
+		if (page !== 'home' && page !== 'materials' && page !== 'summaries') return;
 
 		event.preventDefault();
-		const hash = page === 'materials' ? '#materials' : '#home';
+		const hash = page === 'materials' ? '#materials' : page === 'summaries' ? '#summaries' : '#home';
 		if (window.location.hash !== hash) {
 			window.history.pushState(null, '', hash);
 		}
