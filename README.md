@@ -30,14 +30,3 @@ Para compilar o código TypeScript:
 npm run build
 ```
 
-### Execução
-
-O projeto é uma aplicação estática. Depois da instalação, abra o arquivo `index.html` no navegador.
-
-Como alternativa, inicie um servidor local com:
-
-```bash
-npx serve .
-```
-
-Em seguida, acesse o endereço exibido no terminal.
