@@ -4,8 +4,9 @@ const pageLinks = document.querySelectorAll<HTMLAnchorElement>('[data-page]');
 const savedTheme = localStorage.getItem('theme');
 const initialTheme = savedTheme === 'dark' ? 'dark' : 'light';
 
-type Page = 'home' | 'materials' | 'summaries';
+type Page = 'home' | 'materials' | 'summaries' | 'settings';
 type Category = 'Matemática' | 'Português' | 'Ciências';
+type TextSize = 'normal' | 'large';
 
 interface Material {
 	title: string;
@@ -63,6 +64,22 @@ const materials: Material[] = [
 const categories: Array<'Todos' | Category> = ['Todos', 'Matemática', 'Português', 'Ciências'];
 let activeCategory: 'Todos' | Category = 'Todos';
 let searchQuery = '';
+
+function getDailyGoal(): number {
+	const savedGoal = Number(localStorage.getItem('studyDailyGoal'));
+	return Number.isFinite(savedGoal) && savedGoal >= 15 && savedGoal <= 120 ? savedGoal : 45;
+}
+
+function getPreferredSubject(): Category | null {
+	const savedSubject = localStorage.getItem('studyFocusSubject');
+	return categories.includes(savedSubject as Category) && savedSubject !== 'Todos' ? savedSubject as Category : null;
+}
+
+function applyStudentPreferences(): void {
+	const savedTextSize = localStorage.getItem('studyTextSize');
+	document.documentElement.dataset.textSize = savedTextSize === 'large' ? 'large' : 'normal';
+	document.documentElement.dataset.motion = localStorage.getItem('studyReduceMotion') === 'true' ? 'reduced' : 'full';
+}
 
 function setTheme(theme: 'light' | 'dark'): void {
 	document.documentElement.dataset.theme = theme;
@@ -163,6 +180,104 @@ function renderSummaries(): void {
 		: '<p class="empty-state">Nenhum resumo encontrado. Tente outro termo ou disciplina.</p>';
 }
 
+function renderSettings(): void {
+	if (!pageContent) return;
+
+	const preferredSubject = getPreferredSubject() ?? '';
+	const textSize = localStorage.getItem('studyTextSize') === 'large' ? 'large' : 'normal';
+	const reduceMotion = localStorage.getItem('studyReduceMotion') === 'true';
+	const dailyGoal = getDailyGoal();
+
+	pageContent.innerHTML = `
+		<section class="settings-page" aria-labelledby="settings-title">
+			<div class="materials-heading">
+				<p class="section-label">SEU ESPAÇO DE ESTUDO</p>
+				<h2 id="settings-title">Configurações</h2>
+				<p>Personalize sua rotina e a forma como você estuda.</p>
+			</div>
+			<div class="settings-list">
+				<section class="setting-row" aria-labelledby="daily-goal-title">
+					<div class="setting-description">
+						<h3 id="daily-goal-title">Meta diária de estudo</h3>
+						<p>Escolha quanto tempo quer dedicar aos estudos por dia.</p>
+					</div>
+					<label class="setting-control goal-control">
+						<output data-goal-output for="daily-goal">${dailyGoal} min</output>
+						<input id="daily-goal" type="range" min="15" max="120" step="15" value="${dailyGoal}" data-daily-goal>
+						<span class="range-labels"><span>15 min</span><span>2 h</span></span>
+					</label>
+				</section>
+				<section class="setting-row" aria-labelledby="focus-subject-title">
+					<div class="setting-description">
+						<h3 id="focus-subject-title">Disciplina de foco</h3>
+						<p>Ela será usada como filtro inicial em Materiais e Resumos.</p>
+					</div>
+					<label class="setting-control">
+						<span class="visually-hidden">Escolher disciplina de foco</span>
+						<select class="settings-select" data-focus-subject>
+							<option value="">Sem preferência</option>
+							${categories.filter((category): category is Category => category !== 'Todos').map((category) => `<option value="${category}" ${category === preferredSubject ? 'selected' : ''}>${category}</option>`).join('')}
+						</select>
+					</label>
+				</section>
+				<section class="setting-row" aria-labelledby="text-size-title">
+					<div class="setting-description">
+						<h3 id="text-size-title">Tamanho do texto</h3>
+						<p>Aumente o texto dos materiais para facilitar a leitura.</p>
+					</div>
+					<label class="setting-control">
+						<span class="visually-hidden">Tamanho do texto</span>
+						<select class="settings-select" data-text-size>
+							<option value="normal" ${textSize === 'normal' ? 'selected' : ''}>Padrão</option>
+							<option value="large" ${textSize === 'large' ? 'selected' : ''}>Maior</option>
+						</select>
+					</label>
+				</section>
+				<section class="setting-row" aria-labelledby="motion-title">
+					<div class="setting-description">
+						<h3 id="motion-title">Reduzir animações</h3>
+						<p>Deixe as transições da interface mais discretas.</p>
+					</div>
+					<label class="setting-control setting-toggle">
+						<span class="visually-hidden">Reduzir animações</span>
+						<input type="checkbox" data-reduce-motion ${reduceMotion ? 'checked' : ''}>
+						<span aria-hidden="true"></span>
+					</label>
+				</section>
+			</div>
+			<p class="settings-saved" role="status">As alterações são salvas automaticamente neste dispositivo.</p>
+		</section>
+	`;
+
+	pageContent.querySelector<HTMLInputElement>('[data-daily-goal]')?.addEventListener('input', (event) => {
+		const goal = (event.currentTarget as HTMLInputElement).value;
+		localStorage.setItem('studyDailyGoal', goal);
+		const output = pageContent.querySelector<HTMLOutputElement>('[data-goal-output]');
+		if (output) output.value = `${goal} min`;
+	});
+
+	pageContent.querySelector<HTMLSelectElement>('[data-focus-subject]')?.addEventListener('change', (event) => {
+		const subject = (event.currentTarget as HTMLSelectElement).value;
+		if (subject) {
+			localStorage.setItem('studyFocusSubject', subject);
+		} else {
+			localStorage.removeItem('studyFocusSubject');
+		}
+	});
+
+	pageContent.querySelector<HTMLSelectElement>('[data-text-size]')?.addEventListener('change', (event) => {
+		const size = (event.currentTarget as HTMLSelectElement).value as TextSize;
+		localStorage.setItem('studyTextSize', size);
+		applyStudentPreferences();
+	});
+
+	pageContent.querySelector<HTMLInputElement>('[data-reduce-motion]')?.addEventListener('change', (event) => {
+		const isEnabled = (event.currentTarget as HTMLInputElement).checked;
+		localStorage.setItem('studyReduceMotion', String(isEnabled));
+		applyStudentPreferences();
+	});
+}
+
 function renderPage(page: Page): void {
 	if (!pageContent) return;
 
@@ -178,11 +293,17 @@ function renderPage(page: Page): void {
 		pageContent.innerHTML = `
 			<h2>Bem-vindo ao Reforço Escolar</h2>
 			<p>Este é o seu painel de reforço escolar. Aqui você pode acessar materiais de estudo, acompanhar seu progresso e muito mais.</p>
+			<p class="home-study-goal">Sua meta diária: <strong>${getDailyGoal()} minutos</strong> de estudo.</p>
 		`;
 		return;
 	}
 
-	activeCategory = 'Todos';
+	if (page === 'settings') {
+		renderSettings();
+		return;
+	}
+
+	activeCategory = getPreferredSubject() ?? 'Todos';
 	searchQuery = '';
 	const isSummariesPage = page === 'summaries';
 	pageContent.innerHTML = isSummariesPage ? `
@@ -286,16 +407,17 @@ function renderPage(page: Page): void {
 function pageFromHash(): Page {
 	if (window.location.hash === '#materials') return 'materials';
 	if (window.location.hash === '#summaries') return 'summaries';
+	if (window.location.hash === '#settings') return 'settings';
 	return 'home';
 }
 
 pageLinks.forEach((link) => {
 	link.addEventListener('click', (event) => {
 		const page = link.dataset.page;
-		if (page !== 'home' && page !== 'materials' && page !== 'summaries') return;
+		if (page !== 'home' && page !== 'materials' && page !== 'summaries' && page !== 'settings') return;
 
 		event.preventDefault();
-		const hash = page === 'materials' ? '#materials' : page === 'summaries' ? '#summaries' : '#home';
+		const hash = page === 'materials' ? '#materials' : page === 'summaries' ? '#summaries' : page === 'settings' ? '#settings' : '#home';
 		if (window.location.hash !== hash) {
 			window.history.pushState(null, '', hash);
 		}
@@ -323,4 +445,5 @@ themeButtons.forEach((button) => {
 });
 
 setTheme(initialTheme);
+applyStudentPreferences();
 renderPage(pageFromHash());
