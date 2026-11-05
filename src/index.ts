@@ -2,10 +2,26 @@ const pageContent = document.querySelector<HTMLElement>('#page-content');
 const pageLinks = document.querySelectorAll<HTMLAnchorElement>('[data-page]');
 const sidebar = document.querySelector<HTMLElement>('#primary-navigation');
 const menuToggle = document.querySelector<HTMLButtonElement>('.menu-toggle');
+const profilePhotoButton = document.querySelector<HTMLButtonElement>('.profile-photo-button');
+const profilePhotoInput = document.querySelector<HTMLInputElement>('[data-profile-photo-input]');
+const profilePhotoImage = document.querySelector<HTMLImageElement>('[data-profile-photo]');
+const profilePhotoPlaceholder = document.querySelector<SVGElement>('.profile-photo-placeholder');
+const profilePhotoStatus = document.querySelector<HTMLElement>('[data-profile-photo-status]');
+let classroomBoardResizeHandler: (() => void) | null = null;
 const savedTheme = localStorage.getItem('theme');
 const initialTheme = savedTheme === 'dark' ? 'dark' : 'light';
+const savedProfilePhoto = localStorage.getItem('profile-photo');
 
-type Page = 'home' | 'materials' | 'summaries' | 'login' | 'register';
+function showProfilePhoto(dataUrl: string): void {
+	if (!profilePhotoButton || !profilePhotoImage || !profilePhotoPlaceholder) return;
+	profilePhotoImage.src = dataUrl;
+	profilePhotoImage.hidden = false;
+	profilePhotoPlaceholder.setAttribute('hidden', '');
+	profilePhotoButton.setAttribute('aria-label', 'Alterar foto do perfil');
+	profilePhotoButton.title = 'Alterar foto do perfil';
+}
+
+type Page = 'home' | 'materials' | 'summaries' | 'classroom' | 'agenda' | 'performance' | 'login' | 'register';
 type Category = 'Matemática' | 'Português' | 'Ciências';
 type SubjectFilter = 'Todos' | Category;
 
@@ -67,6 +83,9 @@ const pageHashes: Record<Page, string> = {
 	home: '#home',
 	materials: '#materials',
 	summaries: '#summaries',
+	classroom: '#classroom',
+	agenda: '#agenda',
+	performance: '#performance',
 	login: '#login',
 	register: '#register',
 };
@@ -204,6 +223,10 @@ function renderSummaries(): void {
 
 function renderPage(page: Page): void {
 	if (!pageContent) return;
+	if (classroomBoardResizeHandler) {
+		window.removeEventListener('resize', classroomBoardResizeHandler);
+		classroomBoardResizeHandler = null;
+	}
 
 	const isAuthPage = page === 'login' || page === 'register';
 	document.body.classList.toggle('login-mode', isAuthPage);
@@ -273,6 +296,415 @@ function renderPage(page: Page): void {
 		return;
 	}
 
+	if (page === 'performance') {
+		pageContent.innerHTML = `
+			<section class="performance-page" aria-labelledby="performance-title">
+				<header class="performance-heading">
+					<div>
+						<p class="section-label">ACOMPANHAMENTO ESCOLAR</p>
+						<h2 id="performance-title">Painel de Desempenho</h2>
+						<p>Acompanhe notas, frequência e conquistas ao longo dos estudos.</p>
+					</div>
+					<span class="performance-demo-badge">Dados de demonstração</span>
+				</header>
+
+				<div class="performance-demo-notice" role="note">
+					<strong>Exemplo ilustrativo:</strong> estes indicadores são fictícios. Os dados reais do aluno ainda não estão conectados ao sistema.
+				</div>
+
+				<section class="performance-stat-grid" aria-label="Resumo do desempenho">
+					<article class="performance-stat-card">
+						<span class="performance-stat-icon" aria-hidden="true">▤</span>
+						<div><p>Média geral</p><strong>8,7 <small>/ 10</small></strong><span class="performance-stat-detail">Bom ritmo de aprendizagem</span></div>
+					</article>
+					<article class="performance-stat-card">
+						<span class="performance-stat-icon" aria-hidden="true">✓</span>
+						<div><p>Frequência</p><strong>94<small>%</small></strong><span class="performance-stat-detail">Presença nas aulas</span></div>
+					</article>
+					<article class="performance-stat-card">
+						<span class="performance-stat-icon" aria-hidden="true">✦</span>
+						<div><p>Tarefas concluídas</p><strong>12 <small>/ 15</small></strong><span class="performance-stat-detail">Neste período</span></div>
+					</article>
+					<article class="performance-stat-card">
+						<span class="performance-stat-icon" aria-hidden="true">♛</span>
+						<div><p>Conquistas</p><strong>3 <small>medalhas</small></strong><span class="performance-stat-detail">Continue assim!</span></div>
+					</article>
+				</section>
+
+				<div class="performance-details-grid">
+					<section class="performance-panel" aria-labelledby="performance-grades-title">
+						<div class="performance-panel-heading">
+							<div><h3 id="performance-grades-title">Notas por disciplina</h3><p>Resultados do período</p></div>
+							<span class="performance-period">1º trimestre</span>
+						</div>
+						<ul class="performance-grade-list">
+							<li class="performance-grade-row">
+								<div class="performance-grade-label"><span>Matemática</span><strong>9,0</strong></div>
+								<div class="performance-progress" role="progressbar" aria-label="Nota em Matemática" aria-valuemin="0" aria-valuemax="10" aria-valuenow="9"><span style="--progress: 90%"></span></div>
+							</li>
+							<li class="performance-grade-row">
+								<div class="performance-grade-label"><span>Português</span><strong>8,5</strong></div>
+								<div class="performance-progress" role="progressbar" aria-label="Nota em Português" aria-valuemin="0" aria-valuemax="10" aria-valuenow="8.5"><span style="--progress: 85%"></span></div>
+							</li>
+							<li class="performance-grade-row">
+								<div class="performance-grade-label"><span>Ciências</span><strong>8,6</strong></div>
+								<div class="performance-progress" role="progressbar" aria-label="Nota em Ciências" aria-valuemin="0" aria-valuemax="10" aria-valuenow="8.6"><span style="--progress: 86%"></span></div>
+							</li>
+						</ul>
+					</section>
+
+					<section class="performance-panel" aria-labelledby="performance-attendance-title">
+						<div class="performance-panel-heading">
+							<div><h3 id="performance-attendance-title">Frequência nas aulas</h3><p>Participação neste trimestre</p></div>
+						</div>
+						<div class="performance-attendance-summary">
+							<strong>94%</strong>
+							<span>de presença</span>
+						</div>
+						<div class="performance-progress performance-attendance-progress" role="progressbar" aria-label="Frequência nas aulas" aria-valuemin="0" aria-valuemax="100" aria-valuenow="94"><span style="--progress: 94%"></span></div>
+						<p class="performance-attendance-detail">15 aulas realizadas <span>·</span> 14 presenças</p>
+					</section>
+
+					<section class="performance-panel performance-achievements" aria-labelledby="performance-achievements-title">
+						<div class="performance-panel-heading">
+							<div><h3 id="performance-achievements-title">Medalhas e conquistas</h3><p>Reconhecendo cada passo</p></div>
+						</div>
+						<ul class="performance-achievement-list">
+							<li><span class="performance-medal" aria-hidden="true">🏅</span><span><strong>Primeiro passo</strong><small>Concluiu a primeira tarefa</small></span><span class="performance-earned">Conquistada</span></li>
+							<li><span class="performance-medal" aria-hidden="true">⭐</span><span><strong>Presença nota 10</strong><small>Participou de 10 aulas</small></span><span class="performance-earned">Conquistada</span></li>
+							<li><span class="performance-medal performance-medal-next" aria-hidden="true">🎯</span><span><strong>Foco nos estudos</strong><small>Conclua mais 3 tarefas</small></span><span class="performance-in-progress">Em progresso</span></li>
+						</ul>
+					</section>
+				</div>
+			</section>
+		`;
+		return;
+	}
+
+	if (page === 'agenda') {
+		const formatAgendaDate = (daysFromToday: number) => {
+			const date = new Date();
+			date.setDate(date.getDate() + daysFromToday);
+			return {
+				day: new Intl.DateTimeFormat('pt-BR', { day: '2-digit' }).format(date),
+				month: new Intl.DateTimeFormat('pt-BR', { month: 'short' }).format(date).replace('.', ''),
+				weekday: new Intl.DateTimeFormat('pt-BR', { weekday: 'long' }).format(date),
+			};
+		};
+		const nextClass = formatAgendaDate(1);
+		const nextReview = formatAgendaDate(3);
+		const nextAssignment = formatAgendaDate(5);
+
+		pageContent.innerHTML = `
+			<section class="agenda-page" aria-labelledby="agenda-title">
+				<header class="agenda-heading">
+					<div>
+						<p class="section-label">ORGANIZE SEUS ESTUDOS</p>
+						<h2 id="agenda-title">Agenda</h2>
+						<p>Confira os próximos encontros e prazos para não deixar nada passar.</p>
+					</div>
+					<span class="agenda-demo-badge">Agenda de demonstração</span>
+				</header>
+
+				<div class="agenda-demo-notice" role="note">
+					<strong>Exemplo ilustrativo:</strong> estes horários e atividades são fictícios e ainda não estão conectados a uma agenda real.
+				</div>
+
+				<div class="agenda-layout">
+					<section class="agenda-panel" aria-labelledby="agenda-upcoming-title">
+						<div class="agenda-panel-heading">
+							<div><h3 id="agenda-upcoming-title">Próximos compromissos</h3><p>Aulas e atividades programadas</p></div>
+							<span class="agenda-count">3 eventos</span>
+						</div>
+						<ol class="agenda-event-list">
+							<li class="agenda-event">
+								<div class="agenda-date" aria-label="${nextClass.weekday}, ${nextClass.day} de ${nextClass.month}">
+									<strong>${nextClass.day}</strong><span>${nextClass.month}</span>
+								</div>
+								<div class="agenda-event-copy">
+									<span class="agenda-event-type agenda-class-type">Aula de reforço</span>
+									<h4>Matemática com a Prof. Ana</h4>
+									<p><span aria-hidden="true">◷</span> 14:00 – 15:00 <span class="agenda-event-separator">·</span> Sala de Aula</p>
+								</div>
+							</li>
+							<li class="agenda-event">
+								<div class="agenda-date" aria-label="${nextReview.weekday}, ${nextReview.day} de ${nextReview.month}">
+									<strong>${nextReview.day}</strong><span>${nextReview.month}</span>
+								</div>
+								<div class="agenda-event-copy">
+									<span class="agenda-event-type agenda-class-type">Aula de reforço</span>
+									<h4>Português: interpretação de texto</h4>
+									<p><span aria-hidden="true">◷</span> 10:30 – 11:30 <span class="agenda-event-separator">·</span> Sala de Aula</p>
+								</div>
+							</li>
+							<li class="agenda-event">
+								<div class="agenda-date agenda-date-deadline" aria-label="${nextAssignment.weekday}, ${nextAssignment.day} de ${nextAssignment.month}">
+									<strong>${nextAssignment.day}</strong><span>${nextAssignment.month}</span>
+								</div>
+								<div class="agenda-event-copy">
+									<span class="agenda-event-type agenda-deadline-type">Prazo de atividade</span>
+									<h4>Exercícios de frações</h4>
+									<p><span aria-hidden="true">✓</span> Entregar até 18:00 <span class="agenda-event-separator">·</span> Matemática</p>
+								</div>
+							</li>
+						</ol>
+					</section>
+
+					<aside class="agenda-side-panel">
+						<section class="agenda-panel agenda-week-panel" aria-labelledby="agenda-week-title">
+							<div class="agenda-panel-heading">
+								<div><h3 id="agenda-week-title">Esta semana</h3><p>Seu resumo de atividades</p></div>
+							</div>
+							<div class="agenda-week-stats">
+								<div><span class="agenda-week-icon" aria-hidden="true">▣</span><span><strong>2</strong><small>aulas</small></span></div>
+								<div><span class="agenda-week-icon agenda-week-icon-deadline" aria-hidden="true">✓</span><span><strong>1</strong><small>prazo</small></span></div>
+							</div>
+						</section>
+						<section class="agenda-reminder" aria-label="Lembrete">
+							<span aria-hidden="true">✦</span>
+							<div><h3>Dica para se organizar</h3><p>Reserve alguns minutos antes da aula para separar seus materiais e revisar suas dúvidas.</p></div>
+						</section>
+					</aside>
+				</div>
+			</section>
+		`;
+		return;
+	}
+
+	if (page === 'classroom') {
+		pageContent.innerHTML = `
+			<section class="classroom-page" aria-labelledby="classroom-title">
+				<header class="classroom-heading">
+					<div>
+						<p class="section-label">SALA DE AULA</p>
+						<h2 id="classroom-title">Aula de Matemática</h2>
+						<p>Estude junto, converse e resolva exercícios na lousa.</p>
+					</div>
+					<span class="classroom-demo-badge">Modo demonstração</span>
+				</header>
+				<p class="classroom-demo-notice">Esta sala é uma demonstração local. As pessoas, a chamada e o chat não estão conectados a outros dispositivos.</p>
+				<div class="classroom-layout">
+					<div class="classroom-main">
+						<section class="classroom-call" aria-label="Participantes da chamada">
+							<div class="classroom-call-heading">
+								<div>
+									<h3>Chamada em grupo</h3>
+									<p><span class="classroom-live-dot"></span> Sala aberta · 3 participantes</p>
+								</div>
+							</div>
+							<div class="classroom-participant-grid">
+								<div class="classroom-participant classroom-participant-speaking">
+									<div class="classroom-avatar classroom-avatar-teacher" aria-hidden="true">AN</div>
+									<span class="classroom-participant-name">Prof. Ana <span aria-hidden="true">🎙</span></span>
+								</div>
+								<div class="classroom-participant">
+									<div class="classroom-avatar classroom-avatar-student" aria-hidden="true">LC</div>
+									<span class="classroom-participant-name">Lucas</span>
+								</div>
+								<div class="classroom-participant classroom-participant-self">
+									<div class="classroom-avatar classroom-avatar-you" aria-hidden="true">VC</div>
+									<span class="classroom-participant-name">Você</span>
+								</div>
+							</div>
+							<div class="classroom-controls" role="group" aria-label="Controles da chamada">
+								<button type="button" class="classroom-control" data-classroom-control="microphone" aria-pressed="true">
+									<span aria-hidden="true">🎙</span><span data-control-label>Microfone</span>
+								</button>
+								<button type="button" class="classroom-control" data-classroom-control="camera" aria-pressed="true">
+									<span aria-hidden="true">▣</span><span data-control-label>Câmera</span>
+								</button>
+								<button type="button" class="classroom-control classroom-control-leave" data-classroom-leave>
+									<span aria-hidden="true">↗</span><span>Sair da sala</span>
+								</button>
+							</div>
+						</section>
+
+						<section class="classroom-board" aria-labelledby="board-title">
+							<div class="classroom-panel-heading">
+								<div>
+									<h3 id="board-title">Lousa interativa</h3>
+									<p>Rascunhe uma ideia ou resolva um exercício.</p>
+								</div>
+								<div class="classroom-board-tools" role="group" aria-label="Ferramentas da lousa">
+									<div class="classroom-board-colors" role="group" aria-label="Cor da caneta">
+										<button type="button" class="board-color is-active" data-board-color="#355f50" aria-label="Verde" aria-pressed="true" style="--board-color: #355f50"></button>
+										<button type="button" class="board-color" data-board-color="#315f9b" aria-label="Azul" aria-pressed="false" style="--board-color: #315f9b"></button>
+										<button type="button" class="board-color" data-board-color="#bd5548" aria-label="Vermelho" aria-pressed="false" style="--board-color: #bd5548"></button>
+									</div>
+									<button type="button" class="board-tool is-active" data-board-tool="pen" aria-pressed="true">Caneta</button>
+									<button type="button" class="board-tool" data-board-tool="eraser" aria-pressed="false">Borracha</button>
+									<button type="button" class="board-tool board-tool-clear" data-board-clear>Limpar</button>
+								</div>
+							</div>
+							<div class="classroom-board-canvas-wrap">
+								<canvas class="classroom-board-canvas" data-classroom-board aria-label="Lousa para desenhar com mouse, toque ou caneta"></canvas>
+							</div>
+							<p class="classroom-board-hint">Use o mouse, o dedo ou uma caneta para desenhar.</p>
+						</section>
+					</div>
+
+					<aside class="classroom-chat" aria-labelledby="chat-title">
+						<div class="classroom-panel-heading">
+							<div>
+								<h3 id="chat-title">Conversa</h3>
+								<p>Mensagens desta demonstração</p>
+							</div>
+							<span class="classroom-chat-count" aria-label="3 participantes">3</span>
+						</div>
+						<div class="classroom-chat-messages" data-classroom-messages aria-live="polite">
+							<div class="classroom-message">
+								<strong>Prof. Ana <time>10:02</time></strong>
+								<p>Olá, turma! Vamos revisar frações hoje.</p>
+							</div>
+							<div class="classroom-message">
+								<strong>Lucas <time>10:03</time></strong>
+								<p>Pronto para começar! 😊</p>
+							</div>
+						</div>
+						<form class="classroom-chat-form" data-classroom-chat>
+							<label class="visually-hidden" for="classroom-message-input">Escreva uma mensagem</label>
+							<input id="classroom-message-input" name="message" type="text" maxlength="300" placeholder="Escreva uma mensagem..." autocomplete="off" required>
+							<button type="submit" aria-label="Enviar mensagem">Enviar</button>
+						</form>
+					</aside>
+				</div>
+			</section>
+		`;
+
+		const board = pageContent.querySelector<HTMLCanvasElement>('[data-classroom-board]');
+		const boardContext = board?.getContext('2d');
+		if (!board || !boardContext) throw new Error('Não foi possível iniciar a lousa interativa.');
+
+		let boardTool: 'pen' | 'eraser' = 'pen';
+		let selectedColor = '#355f50';
+		let isDrawing = false;
+		let previousPoint: { x: number; y: number } | null = null;
+		const resizeBoard = () => {
+			const bounds = board.getBoundingClientRect();
+			if (bounds.width === 0 || bounds.height === 0) return;
+			const previousCanvas = document.createElement('canvas');
+			previousCanvas.width = board.width;
+			previousCanvas.height = board.height;
+			previousCanvas.getContext('2d')?.drawImage(board, 0, 0);
+			const pixelRatio = window.devicePixelRatio || 1;
+			board.width = Math.round(bounds.width * pixelRatio);
+			board.height = Math.round(bounds.height * pixelRatio);
+			boardContext.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
+			boardContext.drawImage(previousCanvas, 0, 0, previousCanvas.width, previousCanvas.height, 0, 0, bounds.width, bounds.height);
+			boardContext.lineCap = 'round';
+			boardContext.lineJoin = 'round';
+		};
+		classroomBoardResizeHandler = resizeBoard;
+		resizeBoard();
+		window.addEventListener('resize', resizeBoard);
+
+		const pointFromEvent = (event: PointerEvent) => {
+			const bounds = board.getBoundingClientRect();
+			return { x: event.clientX - bounds.left, y: event.clientY - bounds.top };
+		};
+		const drawToPoint = (point: { x: number; y: number }) => {
+			if (!previousPoint) return;
+			boardContext.globalCompositeOperation = boardTool === 'eraser' ? 'destination-out' : 'source-over';
+			boardContext.strokeStyle = selectedColor;
+			boardContext.lineWidth = boardTool === 'eraser' ? 22 : 3;
+			boardContext.beginPath();
+			boardContext.moveTo(previousPoint.x, previousPoint.y);
+			boardContext.lineTo(point.x, point.y);
+			boardContext.stroke();
+			previousPoint = point;
+		};
+		board.addEventListener('pointerdown', (event) => {
+			isDrawing = true;
+			previousPoint = pointFromEvent(event);
+			board.setPointerCapture(event.pointerId);
+			drawToPoint(previousPoint);
+		});
+		board.addEventListener('pointermove', (event) => {
+			if (isDrawing) drawToPoint(pointFromEvent(event));
+		});
+		const stopDrawing = () => {
+			isDrawing = false;
+			previousPoint = null;
+		};
+		board.addEventListener('pointerup', stopDrawing);
+		board.addEventListener('pointercancel', stopDrawing);
+
+		pageContent.querySelectorAll<HTMLButtonElement>('[data-board-tool]').forEach((button) => {
+			button.addEventListener('click', () => {
+				const tool = button.dataset.boardTool;
+				if (tool !== 'pen' && tool !== 'eraser') return;
+				boardTool = tool;
+				pageContent.querySelectorAll<HTMLButtonElement>('[data-board-tool]').forEach((toolButton) => {
+					const isActive = toolButton === button;
+					toolButton.classList.toggle('is-active', isActive);
+					toolButton.setAttribute('aria-pressed', String(isActive));
+				});
+			});
+		});
+		pageContent.querySelectorAll<HTMLButtonElement>('[data-board-color]').forEach((button) => {
+			button.addEventListener('click', () => {
+				const color = button.dataset.boardColor;
+				if (!color || !/^#[\da-f]{6}$/i.test(color)) return;
+				selectedColor = color;
+				boardTool = 'pen';
+				pageContent.querySelectorAll<HTMLButtonElement>('[data-board-color]').forEach((colorButton) => {
+					const isActive = colorButton === button;
+					colorButton.classList.toggle('is-active', isActive);
+					colorButton.setAttribute('aria-pressed', String(isActive));
+				});
+				pageContent.querySelectorAll<HTMLButtonElement>('[data-board-tool]').forEach((toolButton) => {
+					const isPen = toolButton.dataset.boardTool === 'pen';
+					toolButton.classList.toggle('is-active', isPen);
+					toolButton.setAttribute('aria-pressed', String(isPen));
+				});
+			});
+		});
+		pageContent.querySelector<HTMLButtonElement>('[data-board-clear]')?.addEventListener('click', () => {
+			boardContext.clearRect(0, 0, board.width, board.height);
+		});
+
+		pageContent.querySelectorAll<HTMLButtonElement>('[data-classroom-control]').forEach((button) => {
+			button.addEventListener('click', () => {
+				const isEnabled = button.getAttribute('aria-pressed') === 'true';
+				button.setAttribute('aria-pressed', String(!isEnabled));
+				const label = button.querySelector<HTMLElement>('[data-control-label]');
+				if (label) label.textContent = `${button.dataset.classroomControl === 'microphone' ? 'Microfone' : 'Câmera'} ${isEnabled ? 'desativado' : 'ativado'}`;
+			});
+		});
+
+		pageContent.querySelector<HTMLFormElement>('[data-classroom-chat]')?.addEventListener('submit', (event) => {
+			event.preventDefault();
+			const form = event.currentTarget as HTMLFormElement;
+			const input = form.elements.namedItem('message');
+			if (!(input instanceof HTMLInputElement)) throw new Error('O campo de mensagem da sala não foi encontrado.');
+			const text = input.value.trim();
+			if (!text) return;
+			const message = document.createElement('div');
+			message.className = 'classroom-message classroom-message-self';
+			const author = document.createElement('strong');
+			author.textContent = 'Você';
+			const time = document.createElement('time');
+			time.textContent = new Intl.DateTimeFormat('pt-BR', { hour: '2-digit', minute: '2-digit' }).format(new Date());
+			author.append(time);
+			const body = document.createElement('p');
+			body.textContent = text;
+			message.append(author, body);
+			const messages = pageContent.querySelector<HTMLElement>('[data-classroom-messages]');
+			if (!messages) throw new Error('A conversa da sala não foi encontrada.');
+			messages.append(message);
+			messages.scrollTop = messages.scrollHeight;
+			input.value = '';
+			input.focus();
+		});
+
+		pageContent.querySelector<HTMLButtonElement>('[data-classroom-leave]')?.addEventListener('click', () => {
+			window.history.pushState(null, '', pageHashes.home);
+			renderPage('home');
+			setMobileMenuOpen(false);
+		});
+		return;
+	}
+
 	if (page === 'login' || page === 'register') {
 		const isRegisterPage = page === 'register';
 		pageContent.innerHTML = `
@@ -338,7 +770,7 @@ function renderPage(page: Page): void {
 				</form>
 				${isRegisterPage
 					? '<a class="login-back" href="#login" data-page="login">Já tem uma conta? Entrar</a>'
-					: '<p class="login-register-prompt">Caso não tenha login, <a href="#register" data-page="register">clique aqui para registrar sua conta</a>.</p><a class="login-back" href="#home" data-page="home">Voltar ao início</a>'}
+					: '<p class="login-register-prompt">Caso não tenha login <a href="#register" data-page="register"><span class="register-link-desktop">clique aqui para registrar sua conta</span><span class="register-link-mobile">Clique aqui para criar sua conta</span></a>.</p><a class="login-back" href="#home" data-page="home">Voltar ao início</a>'}
 			</section>
 		`;
 
@@ -460,6 +892,9 @@ function renderPage(page: Page): void {
 function pageFromHash(): Page {
 	if (window.location.hash === '#materials') return 'materials';
 	if (window.location.hash === '#summaries') return 'summaries';
+	if (window.location.hash === '#classroom') return 'classroom';
+	if (window.location.hash === '#agenda') return 'agenda';
+	if (window.location.hash === '#performance') return 'performance';
 	if (window.location.hash === '#login') return 'login';
 	if (window.location.hash === '#register') return 'register';
 	return 'home';
@@ -468,7 +903,7 @@ function pageFromHash(): Page {
 pageLinks.forEach((link) => {
 	link.addEventListener('click', (event) => {
 		const page = link.dataset.page;
-		if (page !== 'home' && page !== 'materials' && page !== 'summaries' && page !== 'login' && page !== 'register') return;
+		if (page !== 'home' && page !== 'materials' && page !== 'summaries' && page !== 'classroom' && page !== 'agenda' && page !== 'performance' && page !== 'login' && page !== 'register') return;
 
 		event.preventDefault();
 		const hash = pageHashes[page];
@@ -502,10 +937,6 @@ document.addEventListener('pointerdown', (event) => {
 	if (!(event.target instanceof Node)) return;
 	const target = event.target;
 
-	if (sidebar?.dataset.open === 'true' && !sidebar.contains(target) && !menuToggle?.contains(target)) {
-		setMobileMenuOpen(false);
-	}
-
 	const subjectPicker = pageContent?.querySelector<HTMLElement>('[data-subject-picker]');
 	if (subjectPicker?.dataset.open === 'true' && !subjectPicker.contains(target)) {
 		setSubjectMenuOpen(subjectPicker, false);
@@ -515,12 +946,60 @@ document.addEventListener('pointerdown', (event) => {
 document.addEventListener('click', (event) => {
 	if (!(event.target instanceof Element)) return;
 
+	if (event.target.closest('.profile-photo-button')) {
+		profilePhotoInput?.click();
+		return;
+	}
+
 	const button = event.target.closest<HTMLButtonElement>('[data-theme-choice]');
 	const theme = button?.dataset.themeChoice;
 	if (theme === 'light' || theme === 'dark') {
 		setTheme(theme);
 	}
 });
+
+profilePhotoInput?.addEventListener('change', () => {
+	const file = profilePhotoInput.files?.[0];
+	if (!file) return;
+	if (!['image/jpeg', 'image/png', 'image/webp', 'image/gif'].includes(file.type)) {
+		if (profilePhotoStatus) profilePhotoStatus.textContent = 'Escolha uma imagem JPG, PNG, WebP ou GIF.';
+		profilePhotoInput.value = '';
+		return;
+	}
+	if (file.size > 2 * 1024 * 1024) {
+		if (profilePhotoStatus) profilePhotoStatus.textContent = 'A foto deve ter no máximo 2 MB.';
+		profilePhotoInput.value = '';
+		return;
+	}
+
+	const reader = new FileReader();
+	reader.addEventListener('load', () => {
+		if (typeof reader.result !== 'string' || !reader.result.startsWith(`data:${file.type};base64,`)) {
+			if (profilePhotoStatus) profilePhotoStatus.textContent = 'Não foi possível carregar essa imagem. Tente outro arquivo.';
+			return;
+		}
+		try {
+			localStorage.setItem('profile-photo', reader.result);
+			showProfilePhoto(reader.result);
+			if (profilePhotoStatus) profilePhotoStatus.textContent = 'Foto do perfil atualizada neste dispositivo.';
+		} catch (error) {
+			if (!(error instanceof DOMException) || (error.name !== 'QuotaExceededError' && error.name !== 'NS_ERROR_DOM_QUOTA_REACHED')) {
+				throw error;
+			}
+			showProfilePhoto(reader.result);
+			if (profilePhotoStatus) profilePhotoStatus.textContent = 'Foto atualizada, mas o armazenamento deste dispositivo está cheio e ela não será mantida após fechar o site.';
+		}
+	});
+	reader.addEventListener('error', () => {
+		if (profilePhotoStatus) profilePhotoStatus.textContent = 'Ocorreu um erro ao ler a imagem. Tente novamente.';
+	});
+	reader.readAsDataURL(file);
+	profilePhotoInput.value = '';
+});
+
+if (savedProfilePhoto?.startsWith('data:image/')) {
+	showProfilePhoto(savedProfilePhoto);
+}
 
 setTheme(initialTheme);
 renderPage(pageFromHash());
