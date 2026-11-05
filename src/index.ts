@@ -1,3 +1,15 @@
+<<<<<<< HEAD
+const pageContent = document.querySelector<HTMLElement>('#page-content');
+const pageLinks = document.querySelectorAll<HTMLAnchorElement>('[data-page]');
+const sidebar = document.querySelector<HTMLElement>('#primary-navigation');
+const menuToggle = document.querySelector<HTMLButtonElement>('.menu-toggle');
+const savedTheme = localStorage.getItem('theme');
+const initialTheme = savedTheme === 'dark' ? 'dark' : 'light';
+
+type Page = 'home' | 'materials' | 'summaries' | 'login' | 'register';
+type Category = 'Matemática' | 'Português' | 'Ciências';
+type SubjectFilter = 'Todos' | Category;
+=======
 const themeButtons = document.querySelectorAll<HTMLButtonElement>('[data-theme-choice]');
 const pageContent = document.querySelector<HTMLElement>('#page-content');
 const pageLinks = document.querySelectorAll<HTMLAnchorElement>('[data-page]');
@@ -7,6 +19,7 @@ const initialTheme = savedTheme === 'dark' ? 'dark' : 'light';
 type Page = 'home' | 'materials' | 'summaries' | 'settings';
 type Category = 'Matemática' | 'Português' | 'Ciências';
 type TextSize = 'normal' | 'large';
+>>>>>>> origin/dev
 
 interface Material {
 	title: string;
@@ -61,6 +74,50 @@ const materials: Material[] = [
 	},
 ];
 
+<<<<<<< HEAD
+const categories: SubjectFilter[] = ['Todos', 'Matemática', 'Português', 'Ciências'];
+const pageHashes: Record<Page, string> = {
+	home: '#home',
+	materials: '#materials',
+	summaries: '#summaries',
+	login: '#login',
+	register: '#register',
+};
+
+let activeCategory: SubjectFilter = 'Todos';
+let searchQuery = '';
+
+function isSubjectFilter(value: string | undefined): value is SubjectFilter {
+	return value !== undefined && categories.some((category) => category === value);
+}
+
+function getFilteredMaterials(getSearchText: (material: Material) => string): Material[] {
+	const normalizedQuery = searchQuery.trim().toLocaleLowerCase('pt-BR');
+
+	return materials.filter((material) => {
+		const matchesCategory = activeCategory === 'Todos' || material.subject === activeCategory;
+		const searchableText = getSearchText(material).toLocaleLowerCase('pt-BR');
+		return matchesCategory && searchableText.includes(normalizedQuery);
+	});
+}
+
+function renderMaterialCards(items: Material[], showSummary = false): string {
+	return items.map((material) => {
+		const descriptionClass = showSummary ? ' class="material-summary"' : '';
+		const description = showSummary ? material.summary : material.description;
+
+		return `
+			<article class="material-card">
+				<div class="material-card-meta">
+					<span class="material-subject">${material.subject}</span>
+					<span class="material-format">${material.format}</span>
+				</div>
+				<h3>${material.title}</h3>
+				<p${descriptionClass}>${description}</p>
+			</article>
+		`;
+	}).join('');
+=======
 const categories: Array<'Todos' | Category> = ['Todos', 'Matemática', 'Português', 'Ciências'];
 let activeCategory: 'Todos' | Category = 'Todos';
 let searchQuery = '';
@@ -79,30 +136,67 @@ function applyStudentPreferences(): void {
 	const savedTextSize = localStorage.getItem('studyTextSize');
 	document.documentElement.dataset.textSize = savedTextSize === 'large' ? 'large' : 'normal';
 	document.documentElement.dataset.motion = localStorage.getItem('studyReduceMotion') === 'true' ? 'reduced' : 'full';
+>>>>>>> origin/dev
 }
 
 function setTheme(theme: 'light' | 'dark'): void {
 	document.documentElement.dataset.theme = theme;
 	localStorage.setItem('theme', theme);
 
+<<<<<<< HEAD
+	document.querySelectorAll<HTMLButtonElement>('[data-theme-choice]').forEach((button) => {
+=======
 	themeButtons.forEach((button) => {
+>>>>>>> origin/dev
 		button.setAttribute('aria-pressed', String(button.dataset.themeChoice === theme));
 	});
 }
 
+<<<<<<< HEAD
+function setMobileMenuOpen(isOpen: boolean): void {
+	if (!sidebar || !menuToggle) return;
+
+	sidebar.dataset.open = String(isOpen);
+	menuToggle.setAttribute('aria-expanded', String(isOpen));
+	menuToggle.setAttribute('aria-label', isOpen ? 'Fechar menu' : 'Abrir menu');
+	const label = menuToggle.querySelector<HTMLElement>('[data-menu-label]');
+	if (label) label.textContent = isOpen ? 'Fechar' : 'Menu';
+}
+
+=======
+>>>>>>> origin/dev
 function renderSubjectPicker(page: 'materials' | 'summaries'): string {
 	const optionsId = `${page}-subject-options`;
 	return `
 		<div class="subject-picker" data-subject-picker data-open="false">
 			<span class="subject-picker-label">Disciplina</span>
+<<<<<<< HEAD
+			<button
+				class="subject-picker-trigger"
+				type="button"
+				data-subject-trigger
+				aria-expanded="false"
+				aria-controls="${optionsId}"
+			>
+=======
 			<button class="subject-picker-trigger" type="button" data-subject-trigger aria-expanded="false" aria-controls="${optionsId}">
+>>>>>>> origin/dev
 				<span class="subject-picker-value" data-selected-subject>Todas as disciplinas</span>
 				<svg class="subject-chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="m7 10 5 5 5-5" /></svg>
 			</button>
 			<div class="subject-options" id="${optionsId}" data-subject-options aria-hidden="true" inert>
 				<div class="subject-options-panel" role="group" aria-label="Filtrar por disciplina">
 					${categories.map((category) => `
+<<<<<<< HEAD
+						<button
+							class="subject-option"
+							type="button"
+							data-category="${category}"
+							aria-pressed="${category === activeCategory}"
+						>
+=======
 						<button class="subject-option" type="button" data-category="${category}" aria-pressed="${category === activeCategory}">
+>>>>>>> origin/dev
 							<span>${category === 'Todos' ? 'Todas as disciplinas' : category}</span>
 							<span class="subject-check" aria-hidden="true">&#10003;</span>
 						</button>
@@ -125,6 +219,11 @@ function setSubjectMenuOpen(picker: HTMLElement, isOpen: boolean): void {
 function renderMaterials(): void {
 	if (!pageContent) return;
 
+<<<<<<< HEAD
+	const filteredMaterials = getFilteredMaterials(
+		(material) => `${material.title} ${material.subject} ${material.description}`,
+	);
+=======
 	const normalizedQuery = searchQuery.trim().toLocaleLowerCase('pt-BR');
 	const filteredMaterials = materials.filter((material) => {
 		const matchesCategory = activeCategory === 'Todos' || material.subject === activeCategory;
@@ -132,10 +231,17 @@ function renderMaterials(): void {
 		return matchesCategory && searchableText.includes(normalizedQuery);
 	});
 
+>>>>>>> origin/dev
 	const list = pageContent.querySelector<HTMLElement>('[data-material-list]');
 	const count = pageContent.querySelector<HTMLElement>('[data-material-count]');
 	if (!list || !count) return;
 
+<<<<<<< HEAD
+	const resultLabel = filteredMaterials.length === 1 ? 'material encontrado' : 'materiais encontrados';
+	count.textContent = `${filteredMaterials.length} ${resultLabel}`;
+	list.innerHTML = filteredMaterials.length
+		? renderMaterialCards(filteredMaterials)
+=======
 	count.textContent = `${filteredMaterials.length} ${filteredMaterials.length === 1 ? 'material encontrado' : 'materiais encontrados'}`;
 	list.innerHTML = filteredMaterials.length
 		? filteredMaterials.map((material) => `
@@ -148,12 +254,18 @@ function renderMaterials(): void {
 				<p>${material.description}</p>
 			</article>
 		`).join('')
+>>>>>>> origin/dev
 		: '<p class="empty-state">Nenhum material encontrado. Tente outro termo ou disciplina.</p>';
 }
 
 function renderSummaries(): void {
 	if (!pageContent) return;
 
+<<<<<<< HEAD
+	const filteredMaterials = getFilteredMaterials(
+		(material) => `${material.title} ${material.subject} ${material.summary}`,
+	);
+=======
 	const normalizedQuery = searchQuery.trim().toLocaleLowerCase('pt-BR');
 	const filteredMaterials = materials.filter((material) => {
 		const matchesCategory = activeCategory === 'Todos' || material.subject === activeCategory;
@@ -161,10 +273,27 @@ function renderSummaries(): void {
 		return matchesCategory && searchableText.includes(normalizedQuery);
 	});
 
+>>>>>>> origin/dev
 	const list = pageContent.querySelector<HTMLElement>('[data-summary-list]');
 	const count = pageContent.querySelector<HTMLElement>('[data-summary-count]');
 	if (!list || !count) return;
 
+<<<<<<< HEAD
+	const resultLabel = filteredMaterials.length === 1 ? 'resumo encontrado' : 'resumos encontrados';
+	count.textContent = `${filteredMaterials.length} ${resultLabel}`;
+	list.innerHTML = filteredMaterials.length
+		? renderMaterialCards(filteredMaterials, true)
+		: '<p class="empty-state">Nenhum resumo encontrado. Tente outro termo ou disciplina.</p>';
+}
+
+function renderPage(page: Page): void {
+	if (!pageContent) return;
+
+	const isAuthPage = page === 'login' || page === 'register';
+	document.body.classList.toggle('login-mode', isAuthPage);
+	pageContent.classList.toggle('login-content', isAuthPage);
+	pageContent.classList.toggle('home-content', page === 'home');
+=======
 	count.textContent = `${filteredMaterials.length} ${filteredMaterials.length === 1 ? 'resumo encontrado' : 'resumos encontrados'}`;
 	list.innerHTML = filteredMaterials.length
 		? filteredMaterials.map((material) => `
@@ -281,6 +410,7 @@ function renderSettings(): void {
 function renderPage(page: Page): void {
 	if (!pageContent) return;
 
+>>>>>>> origin/dev
 	pageLinks.forEach((link) => {
 		if (link.dataset.page === page) {
 			link.setAttribute('aria-current', 'page');
@@ -291,19 +421,156 @@ function renderPage(page: Page): void {
 
 	if (page === 'home') {
 		pageContent.innerHTML = `
+<<<<<<< HEAD
+			<section class="home-dashboard" aria-labelledby="home-title">
+				<div class="home-welcome">
+					<div class="home-welcome-copy">
+						<p class="section-label">SEU ESPAÇO DE APRENDIZADO</p>
+						<h2 id="home-title">Olá! Vamos aprender hoje?</h2>
+						<p>Encontre um assunto, revise no seu ritmo e siga avançando nos estudos.</p>
+						<a class="home-primary-link" href="#materials">Explorar materiais <span aria-hidden="true">→</span></a>
+					</div>
+					<div class="home-welcome-art" aria-hidden="true">
+						<span class="home-art-sparkle sparkle-one">✦</span>
+						<span class="home-art-sparkle sparkle-two">✧</span>
+						<svg viewBox="0 0 120 100" focusable="false">
+							<path d="M12 30c17-9 32-8 48 2 16-10 31-11 48-2v52c-18-8-33-7-48 3-15-10-30-11-48-3V30Z" />
+							<path d="M60 32v53M22 43c11-5 20-5 29 0M22 54c11-5 20-5 29 0M69 43c9-5 18-5 29 0M69 54c9-5 18-5 29 0" />
+						</svg>
+					</div>
+				</div>
+
+				<section class="home-shortcuts" aria-labelledby="home-shortcuts-title">
+					<div class="home-section-heading">
+						<div>
+							<p class="section-label">COMECE POR AQUI</p>
+							<h3 id="home-shortcuts-title">O que você quer estudar?</h3>
+						</div>
+					</div>
+					<div class="home-shortcut-grid">
+						<a class="home-shortcut" href="#summaries">
+							<span class="home-shortcut-icon" aria-hidden="true">▤</span>
+							<span class="home-shortcut-copy">
+								<strong>Revisar resumos</strong>
+								<span>${materials.length} resumos para relembrar os principais conceitos.</span>
+							</span>
+							<span class="home-shortcut-arrow" aria-hidden="true">→</span>
+						</a>
+						<a class="home-shortcut" href="#materials">
+							<span class="home-shortcut-icon" aria-hidden="true">◷</span>
+							<span class="home-shortcut-copy">
+								<strong>Explorar materiais</strong>
+								<span>${materials.length} conteúdos para aprender e praticar.</span>
+							</span>
+							<span class="home-shortcut-arrow" aria-hidden="true">→</span>
+						</a>
+					</div>
+				</section>
+
+				<aside class="home-study-tip">
+					<span class="home-tip-icon" aria-hidden="true">✦</span>
+					<p><strong>Uma dica para hoje</strong><br>Escolha um assunto e avance um passo de cada vez. Seu ritmo também faz parte do aprendizado.</p>
+				</aside>
+			</section>
+=======
 			<h2>Bem-vindo ao Reforço Escolar</h2>
 			<p>Este é o seu painel de reforço escolar. Aqui você pode acessar materiais de estudo, acompanhar seu progresso e muito mais.</p>
 			<p class="home-study-goal">Sua meta diária: <strong>${getDailyGoal()} minutos</strong> de estudo.</p>
+>>>>>>> origin/dev
 		`;
 		return;
 	}
 
+<<<<<<< HEAD
+	if (page === 'login' || page === 'register') {
+		const isRegisterPage = page === 'register';
+		pageContent.innerHTML = `
+			<section class="login-view" aria-labelledby="auth-title">
+				<div class="theme-switch login-theme-switch" role="group" aria-label="Escolher tema">
+					<button
+						type="button"
+						data-theme-choice="light"
+						aria-label="Ativar tema claro"
+						aria-pressed="${document.documentElement.dataset.theme !== 'dark'}"
+					>
+						<span class="theme-icon" aria-hidden="true">☼</span>
+						<span class="theme-label">Claro</span>
+					</button>
+					<button
+						type="button"
+						data-theme-choice="dark"
+						aria-label="Ativar tema escuro"
+						aria-pressed="${document.documentElement.dataset.theme === 'dark'}"
+					>
+						<span class="theme-icon" aria-hidden="true">☾</span>
+						<span class="theme-label">Escuro</span>
+					</button>
+				</div>
+				<div class="login-brand">
+					<svg class="brand-mark" viewBox="0 0 64 64" aria-hidden="true" focusable="false">
+						<path class="book-outline" d="M8 20c9-5 17-5 24 0 7-5 15-5 24 0v29c-9-4-17-4-24 1-7-5-15-5-24-1V20Z" />
+						<path class="book-spine" d="M32 20v30" />
+						<path class="book-detail" d="M14 28c5-2 9-2 13 0M14 35c5-2 9-2 13 0M38 28c4-2 8-2 12 0M38 35c4-2 8-2 12 0" />
+						<path class="brand-sparkle sparkle-left" d="m14 8 2 4 4 2-4 2-2 4-2-4-4-2 4-2 2-4Z" />
+						<path class="brand-sparkle sparkle-right" d="m51 5 2 5 5 2-5 2-2 5-2-5-5-2 5-2 2-5Z" />
+						<circle class="brand-dot dot-left" cx="27" cy="10" r="1.7" />
+						<circle class="brand-dot dot-right" cx="42" cy="13" r="1.7" />
+					</svg>
+					<span>Reforço Escolar</span>
+				</div>
+				<div class="login-heading">
+					<p class="section-label">SEU ESPAÇO DE APRENDIZADO</p>
+					<h2 id="auth-title">${isRegisterPage ? 'Cadastro do aluno' : 'Boas-vindas!'}</h2>
+					<p>${isRegisterPage ? 'Cadastre seu e-mail e uma senha para começar a estudar.' : 'Entre com seus dados para continuar estudando.'}</p>
+				</div>
+				<form class="login-form" data-auth-form>
+					<label for="auth-email">E-mail</label>
+					<input
+						id="auth-email"
+						name="email"
+						type="email"
+						autocomplete="username"
+						placeholder="voce@exemplo.com"
+						required
+					>
+					<label for="auth-password">Senha</label>
+					<input
+						id="auth-password"
+						name="password"
+						type="password"
+						autocomplete="${isRegisterPage ? 'new-password' : 'current-password'}"
+						placeholder="${isRegisterPage ? 'Crie uma senha' : 'Digite sua senha'}"
+						required
+					>
+					<button class="login-submit" type="submit">${isRegisterPage ? 'Criar conta' : 'Entrar'}</button>
+					<p class="login-status" data-login-status role="status" aria-live="polite"></p>
+				</form>
+				${isRegisterPage
+					? '<a class="login-back" href="#login" data-page="login">Já tem uma conta? Entrar</a>'
+					: '<p class="login-register-prompt">Caso não tenha login, <a href="#register" data-page="register">clique aqui para registrar sua conta</a>.</p><a class="login-back" href="#home" data-page="home">Voltar ao início</a>'}
+			</section>
+		`;
+
+		pageContent.querySelector<HTMLFormElement>('[data-auth-form]')?.addEventListener('submit', (event) => {
+			event.preventDefault();
+			const status = pageContent.querySelector<HTMLElement>('[data-login-status]');
+			if (!status) throw new Error('O campo de status do login não foi encontrado.');
+			status.textContent = isRegisterPage
+				? 'O cadastro ainda não está conectado ao servidor. O formulário está pronto para integração.'
+				: 'A autenticação ainda não está conectada. O formulário está pronto para integração com o servidor.';
+		});
+		return;
+	}
+
+	activeCategory = 'Todos';
+=======
 	if (page === 'settings') {
 		renderSettings();
 		return;
 	}
 
 	activeCategory = getPreferredSubject() ?? 'Todos';
+>>>>>>> origin/dev
 	searchQuery = '';
 	const isSummariesPage = page === 'summaries';
 	pageContent.innerHTML = isSummariesPage ? `
@@ -360,11 +627,21 @@ function renderPage(page: Page): void {
 	}
 
 	subjectPicker?.addEventListener('click', (event) => {
+<<<<<<< HEAD
+		if (!(event.target instanceof Element)) return;
+
+		const option = event.target.closest<HTMLButtonElement>('[data-category]');
+		const category = option?.dataset.category;
+		if (!option || !isSubjectFilter(category)) return;
+
+		activeCategory = category;
+=======
 		const option = (event.target as HTMLElement).closest<HTMLButtonElement>('[data-category]');
 		const category = option?.dataset.category;
 		if (!option || !categories.includes(category as 'Todos' | Category)) return;
 
 		activeCategory = category as 'Todos' | Category;
+>>>>>>> origin/dev
 		const selectedSubject = subjectPicker.querySelector<HTMLElement>('[data-selected-subject]');
 		if (selectedSubject) {
 			selectedSubject.textContent = activeCategory === 'Todos' ? 'Todas as disciplinas' : activeCategory;
@@ -385,7 +662,12 @@ function renderPage(page: Page): void {
 			return;
 		}
 
+<<<<<<< HEAD
+		if (!(event.target instanceof HTMLElement)) return;
+		const target = event.target;
+=======
 		const target = event.target as HTMLElement;
+>>>>>>> origin/dev
 		if (target.closest('[data-subject-trigger]') && event.key === 'ArrowDown') {
 			event.preventDefault();
 			setSubjectMenuOpen(subjectPicker, true);
@@ -407,21 +689,67 @@ function renderPage(page: Page): void {
 function pageFromHash(): Page {
 	if (window.location.hash === '#materials') return 'materials';
 	if (window.location.hash === '#summaries') return 'summaries';
+<<<<<<< HEAD
+	if (window.location.hash === '#login') return 'login';
+	if (window.location.hash === '#register') return 'register';
+=======
 	if (window.location.hash === '#settings') return 'settings';
+>>>>>>> origin/dev
 	return 'home';
 }
 
 pageLinks.forEach((link) => {
 	link.addEventListener('click', (event) => {
 		const page = link.dataset.page;
+<<<<<<< HEAD
+		if (page !== 'home' && page !== 'materials' && page !== 'summaries' && page !== 'login' && page !== 'register') return;
+
+		event.preventDefault();
+		const hash = pageHashes[page];
+=======
 		if (page !== 'home' && page !== 'materials' && page !== 'summaries' && page !== 'settings') return;
 
 		event.preventDefault();
 		const hash = page === 'materials' ? '#materials' : page === 'summaries' ? '#summaries' : page === 'settings' ? '#settings' : '#home';
+>>>>>>> origin/dev
 		if (window.location.hash !== hash) {
 			window.history.pushState(null, '', hash);
 		}
 		renderPage(page);
+<<<<<<< HEAD
+		setMobileMenuOpen(false);
+	});
+});
+
+menuToggle?.addEventListener('click', () => {
+	setMobileMenuOpen(sidebar?.dataset.open !== 'true');
+});
+
+sidebar?.querySelectorAll<HTMLAnchorElement>('a').forEach((link) => {
+	link.addEventListener('click', () => setMobileMenuOpen(false));
+});
+
+document.addEventListener('keydown', (event) => {
+	if (event.key === 'Escape' && sidebar?.dataset.open === 'true') {
+		setMobileMenuOpen(false);
+		menuToggle?.focus();
+	}
+});
+
+window.addEventListener('popstate', () => renderPage(pageFromHash()));
+window.addEventListener('hashchange', () => renderPage(pageFromHash()));
+
+document.addEventListener('pointerdown', (event) => {
+	if (!(event.target instanceof Node)) return;
+	const target = event.target;
+
+	if (sidebar?.dataset.open === 'true' && !sidebar.contains(target) && !menuToggle?.contains(target)) {
+		setMobileMenuOpen(false);
+	}
+
+	const subjectPicker = pageContent?.querySelector<HTMLElement>('[data-subject-picker]');
+	if (subjectPicker?.dataset.open === 'true' && !subjectPicker.contains(target)) {
+=======
 	});
 });
 
@@ -430,10 +758,24 @@ window.addEventListener('popstate', () => renderPage(pageFromHash()));
 document.addEventListener('pointerdown', (event) => {
 	const subjectPicker = pageContent?.querySelector<HTMLElement>('[data-subject-picker]');
 	if (subjectPicker?.dataset.open === 'true' && !subjectPicker.contains(event.target as Node)) {
+>>>>>>> origin/dev
 		setSubjectMenuOpen(subjectPicker, false);
 	}
 });
 
+<<<<<<< HEAD
+document.addEventListener('click', (event) => {
+	if (!(event.target instanceof Element)) return;
+
+	const button = event.target.closest<HTMLButtonElement>('[data-theme-choice]');
+	const theme = button?.dataset.themeChoice;
+	if (theme === 'light' || theme === 'dark') {
+		setTheme(theme);
+	}
+});
+
+setTheme(initialTheme);
+=======
 themeButtons.forEach((button) => {
 	button.addEventListener('click', () => {
 		const theme = button.dataset.themeChoice;
@@ -446,4 +788,5 @@ themeButtons.forEach((button) => {
 
 setTheme(initialTheme);
 applyStudentPreferences();
+>>>>>>> origin/dev
 renderPage(pageFromHash());
