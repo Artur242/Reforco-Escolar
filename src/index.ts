@@ -1,4 +1,6 @@
-﻿const pageContent = document.querySelector<HTMLElement>('#page-content');
+import { supabase } from './supabaseClient.js';
+
+const pageContent = document.querySelector<HTMLElement>('#page-content');
 const pageLinks = document.querySelectorAll<HTMLAnchorElement>('[data-page]');
 const sidebar = document.querySelector<HTMLElement>('#primary-navigation');
 const menuToggle = document.querySelector<HTMLButtonElement>('.menu-toggle');
@@ -747,6 +749,17 @@ function renderPage(page: Page): void {
 					<p>${isRegisterPage ? 'Cadastre seu e-mail e uma senha para começar a estudar.' : 'Entre com seus dados para continuar estudando.'}</p>
 				</div>
 				<form class="login-form" data-auth-form>
+					${isRegisterPage ? `
+						<label for="auth-full-name">Nome completo</label>
+						<input
+							id="auth-full-name"
+							name="full_name"
+							type="text"
+							autocomplete="name"
+							placeholder="Seu nome completo"
+							required
+						>
+					` : ''}
 					<label for="auth-email">E-mail</label>
 					<input
 						id="auth-email"
@@ -763,6 +776,7 @@ function renderPage(page: Page): void {
 						type="password"
 						autocomplete="${isRegisterPage ? 'new-password' : 'current-password'}"
 						placeholder="${isRegisterPage ? 'Crie uma senha' : 'Digite sua senha'}"
+						minlength="${isRegisterPage ? '6' : '1'}"
 						required
 					>
 					<button class="login-submit" type="submit">${isRegisterPage ? 'Criar conta' : 'Entrar'}</button>
@@ -774,13 +788,114 @@ function renderPage(page: Page): void {
 			</section>
 		`;
 
-		pageContent.querySelector<HTMLFormElement>('[data-auth-form]')?.addEventListener('submit', (event) => {
+		pageContent.querySelector<HTMLFormElement>('[data-auth-form]')?.addEventListener('submit', async (event) => {
 			event.preventDefault();
 			const status = pageContent.querySelector<HTMLElement>('[data-login-status]');
 			if (!status) throw new Error('O campo de status do login não foi encontrado.');
-			status.textContent = isRegisterPage
-				? 'O cadastro ainda não está conectado ao servidor. O formulário está pronto para integração.'
-				: 'A autenticação ainda não está conectada. O formulário está pronto para integração com o servidor.';
+			const form = event.currentTarget;
+			if (!(form instanceof HTMLFormElement)) return;
+
+			const submitButton = form.querySelector<HTMLButtonElement>('[type="submit"]');
+			if (!submitButton) throw new Error('O botão de envio do formulário não foi encontrado.');
+
+			const formData = new FormData(form);
+			const email = String(formData.get('email') ?? '').trim();
+			const password = String(formData.get('password') ?? '');
+			const fullName = String(formData.get('full_name') ?? '').trim();
+
+			submitButton.disabled = true;
+			status.textContent = isRegisterPage ? 'Criando sua conta...' : 'Entrando...';
+
+			try {
+				if (!isRegisterPage) {
+					const { data, error } = await supabase.auth.signInWithPassword({
+						email,
+						password,
+					});
+
+					if (error) {
+						console.error('Erro ao entrar no Supabase.', error);
+						const errorMessage = error.message.toLowerCase();
+						if (errorMessage.includes('invalid login credentials')) {
+							status.textContent = 'E-mail ou senha incorretos.';
+						} else if (errorMessage.includes('email not confirmed')) {
+							status.textContent = 'Confirme seu e-mail antes de entrar.';
+						} else if (errorMessage.includes('password')) {
+							status.textContent = 'Verifique sua senha e tente novamente.';
+						} else {
+							status.textContent = 'Não foi possível entrar. Tente novamente.';
+						}
+						return;
+					}
+
+					if (!data.user) {
+						throw new Error('O Supabase não retornou o usuário autenticado.');
+					}
+
+					status.textContent = 'Login realizado com sucesso!';
+					form.reset();
+					window.history.pushState(null, '', pageHashes.home);
+					renderPage('home');
+					setMobileMenuOpen(false);
+					return;
+				}
+
+				if (password.length < 6) {
+					status.textContent = 'A senha deve ter pelo menos 6 caracteres.';
+					return;
+				}
+
+				const { data, error } = await supabase.auth.signUp({
+					email,
+					password,
+					options: {
+						data: { full_name: fullName, role: 'student' },
+					},
+				});
+
+				if (error) {
+					console.error('Erro ao criar usuário no Supabase.', error);
+					const errorMessage = error.message.toLowerCase();
+					if (errorMessage.includes('already registered')) {
+						status.textContent = 'Este e-mail já está cadastrado.';
+					} else if (errorMessage.includes('password should be at least') || error.name === 'AuthWeakPasswordError') {
+						status.textContent = 'A senha deve ter pelo menos 6 caracteres.';
+					} else {
+						status.textContent = 'Não foi possível criar a conta. Verifique os dados e tente novamente.';
+					}
+					return;
+				}
+
+				if (!data.user) {
+					throw new Error('O Supabase não retornou o usuário criado.');
+				}
+
+				if (data.session) {
+					const { error: profileError } = await supabase.from('profiles').insert({
+						id: data.user.id,
+						full_name: fullName,
+						role: 'student',
+					});
+
+					if (profileError) {
+						console.error('Usuário criado, mas o perfil não foi salvo.', profileError);
+						status.textContent = 'A conta foi criada, mas não foi possível salvar o perfil.';
+						return;
+					}
+
+					status.textContent = 'Cadastro realizado com sucesso!';
+					form.reset();
+					return;
+				}
+
+				status.textContent = 'Cadastro realizado! Confirme seu e-mail para ativar a conta.';
+				form.reset();
+			} catch (error) {
+				console.error('Erro ao cadastrar usuário.', error);
+				status.textContent = 'Não foi possível conectar ao Supabase. Tente novamente.';
+			} finally {
+				submitButton.disabled = false;
+			}
 		});
 		return;
 	}
@@ -912,6 +1027,21 @@ pageLinks.forEach((link) => {
 		}
 		renderPage(page);
 		setMobileMenuOpen(false);
+	});
+
+	document.querySelector<HTMLAnchorElement>('.logout-link')?.addEventListener('click', async (event) => {
+		event.preventDefault();
+		const logoutLink = event.currentTarget;
+		if (!(logoutLink instanceof HTMLAnchorElement)) return;
+
+		const { error } = await supabase.auth.signOut();
+		if (error) {
+			console.error('Erro ao sair do Supabase.', error);
+			return;
+		}
+
+		window.history.pushState(null, '', pageHashes.login);
+		renderPage('login');
 	});
 });
 
