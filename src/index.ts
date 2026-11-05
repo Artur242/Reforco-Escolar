@@ -1,4 +1,4 @@
-const pageContent = document.querySelector<HTMLElement>('#page-content');
+﻿const pageContent = document.querySelector<HTMLElement>('#page-content');
 const pageLinks = document.querySelectorAll<HTMLAnchorElement>('[data-page]');
 const sidebar = document.querySelector<HTMLElement>('#primary-navigation');
 const menuToggle = document.querySelector<HTMLButtonElement>('.menu-toggle');
