@@ -9,6 +9,7 @@
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     color-scheme: light;
+<<<<<<< HEAD
     --page-bg: #edf1ed;
     --surface: #f7f7f1;
     --text: #293b37;
@@ -18,6 +19,17 @@
     --accent-strong: #3e6258;
     --accent-soft: #e2ebe4;
     --focus: #91b6a1;
+=======
+    --page-bg: #f4f7f4;
+    --surface: #fffefa;
+    --text: #293b37;
+    --muted: #687a73;
+    --border: #e1e9e3;
+    --accent: #52786e;
+    --accent-strong: #3e6258;
+    --accent-soft: #e8f1eb;
+    --focus: #a9cbb8;
+>>>>>>> origin/dev
 }
 
 :root[data-theme="dark"] {
@@ -42,7 +54,11 @@ body {
     min-width: 320px;
     min-height: 100vh;
     grid-template-columns: 248px minmax(0, 1fr);
+<<<<<<< HEAD
     grid-template-rows: 54px 1fr auto;
+=======
+    grid-template-rows: 76px 1fr auto;
+>>>>>>> origin/dev
     grid-template-areas:
         "header header"
         "sidebar content"
@@ -50,6 +66,7 @@ body {
     margin: 0;
 }
 
+<<<<<<< HEAD
 body.login-mode {
     height: 100vh;
     height: 100dvh;
@@ -66,6 +83,8 @@ body.login-mode .footer {
     display: none;
 }
 
+=======
+>>>>>>> origin/dev
 .topbar {
     position: sticky;
     z-index: 2;
@@ -138,6 +157,7 @@ body.login-mode .footer {
 }
 
 @keyframes sparkle {
+<<<<<<< HEAD
     0%,
     100% {
         opacity: 0.65;
@@ -161,6 +181,15 @@ body.login-mode .footer {
         opacity: 1;
         transform: scale(1.2);
     }
+=======
+    0%, 100% { opacity: 0.65; transform: scale(0.88) rotate(-8deg); }
+    50% { opacity: 1; transform: scale(1.08) rotate(8deg); }
+}
+
+@keyframes twinkle {
+    0%, 100% { opacity: 0.35; transform: scale(0.75); }
+    50% { opacity: 1; transform: scale(1.2); }
+>>>>>>> origin/dev
 }
 
 .user-info {
@@ -169,6 +198,7 @@ body.login-mode .footer {
     gap: 14px;
 }
 
+<<<<<<< HEAD
 .menu-toggle {
     display: none;
     min-height: 44px;
@@ -242,12 +272,15 @@ body.login-mode .footer {
     transform: rotate(-45deg);
 }
 
+=======
+>>>>>>> origin/dev
 .user-name {
     color: var(--muted);
     font-size: 13px;
     font-weight: 600;
 }
 
+<<<<<<< HEAD
 .user-actions {
     display: flex;
     align-items: center;
@@ -258,6 +291,9 @@ body.login-mode .footer {
     display: inline-flex;
     align-items: center;
     justify-content: center;
+=======
+.logout-link {
+>>>>>>> origin/dev
     border: 1px solid var(--border);
     border-radius: 8px;
     color: var(--accent-strong);
@@ -268,6 +304,7 @@ body.login-mode .footer {
     transition: background-color 160ms ease, color 160ms ease;
 }
 
+<<<<<<< HEAD
 .logout-icon {
     display: none;
     width: 20px;
@@ -279,6 +316,8 @@ body.login-mode .footer {
     stroke-width: 1.8;
 }
 
+=======
+>>>>>>> origin/dev
 .logout-link:hover,
 .logout-link:focus-visible {
     background: var(--accent-strong);
@@ -320,6 +359,7 @@ body.login-mode .footer {
 }
 
 .sidebar {
+<<<<<<< HEAD
     position: sticky;
     top: 54px;
     align-self: start;
@@ -329,12 +369,22 @@ body.login-mode .footer {
     border-right: 1px solid var(--border);
     background: var(--surface);
     padding: 20px 14px;
+=======
+    grid-area: sidebar;
+    border-right: 1px solid var(--border);
+    background: var(--surface);
+    padding: 27px 16px;
+>>>>>>> origin/dev
 }
 
 .sidebar ul {
     display: flex;
     flex-direction: column;
+<<<<<<< HEAD
     gap: 5px;
+=======
+    gap: 7px;
+>>>>>>> origin/dev
     margin: 0;
     padding: 0;
     list-style: none;
@@ -342,13 +392,21 @@ body.login-mode .footer {
 
 .sidebar a {
     display: flex;
+<<<<<<< HEAD
     min-height: 40px;
+=======
+    min-height: 45px;
+>>>>>>> origin/dev
     align-items: center;
     border-radius: 9px;
     color: var(--muted);
     font-size: 13px;
     font-weight: 600;
+<<<<<<< HEAD
     padding: 0 11px;
+=======
+    padding: 0 13px;
+>>>>>>> origin/dev
     text-decoration: none;
     transition: background-color 160ms ease, color 160ms ease, transform 160ms ease;
 }
@@ -359,7 +417,11 @@ body.login-mode .footer {
     font-size: 16px;
 }
 
+<<<<<<< HEAD
 .sidebar li:first-child a::before {
+=======
+.sidebar li:nth-child(1) a::before {
+>>>>>>> origin/dev
     content: "⌂";
 }
 
@@ -375,6 +437,13 @@ body.login-mode .footer {
     content: "▷";
 }
 
+<<<<<<< HEAD
+=======
+.sidebar li:nth-child(5) a::before {
+    content: "⚙";
+}
+
+>>>>>>> origin/dev
 .sidebar a:hover,
 .sidebar a:focus-visible {
     transform: translateX(2px);
@@ -388,6 +457,7 @@ body.login-mode .footer {
     color: var(--accent-strong);
 }
 
+<<<<<<< HEAD
 :root:not([data-theme="dark"]) .sidebar {
     border-color: #d3ded5;
     background: #f3f6f1;
@@ -448,6 +518,8 @@ body.login-mode .footer {
     color: #c3dfcf;
 }
 
+=======
+>>>>>>> origin/dev
 .content {
     grid-area: content;
     align-self: start;
@@ -456,6 +528,7 @@ body.login-mode .footer {
     padding: clamp(36px, 7vw, 76px) clamp(24px, 7vw, 80px);
 }
 
+<<<<<<< HEAD
 .home-dashboard {
     display: grid;
     gap: clamp(24px, 4vw, 36px);
@@ -897,6 +970,8 @@ body.login-mode .footer {
     color: var(--text);
 }
 
+=======
+>>>>>>> origin/dev
 .content h2 {
     margin: 0;
     color: var(--text);
@@ -915,6 +990,17 @@ body.login-mode .footer {
     line-height: 1.8;
 }
 
+<<<<<<< HEAD
+=======
+.materials-heading .section-label {
+    margin: 0 0 8px;
+    color: var(--accent-strong);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+}
+
+>>>>>>> origin/dev
 .materials-toolbar {
     display: flex;
     flex-wrap: wrap;
@@ -1025,11 +1111,15 @@ body.login-mode .footer {
     transform: translateY(-7px) scale(0.98);
     transform-origin: top center;
     visibility: hidden;
+<<<<<<< HEAD
     transition:
         grid-template-rows 220ms cubic-bezier(0.2, 0.8, 0.2, 1),
         opacity 160ms ease,
         transform 220ms cubic-bezier(0.2, 0.8, 0.2, 1),
         visibility 0s linear 220ms;
+=======
+    transition: grid-template-rows 220ms cubic-bezier(0.2, 0.8, 0.2, 1), opacity 160ms ease, transform 220ms cubic-bezier(0.2, 0.8, 0.2, 1), visibility 0s linear 220ms;
+>>>>>>> origin/dev
 }
 
 .subject-picker[data-open="true"] .subject-options {
@@ -1111,6 +1201,7 @@ body.login-mode .footer {
     animation: material-enter 320ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
 }
 
+<<<<<<< HEAD
 .material-card:nth-child(2) {
     animation-delay: 35ms;
 }
@@ -1141,6 +1232,17 @@ body.login-mode .footer {
         opacity: 1;
         transform: translateY(0) scale(1);
     }
+=======
+.material-card:nth-child(2) { animation-delay: 35ms; }
+.material-card:nth-child(3) { animation-delay: 70ms; }
+.material-card:nth-child(4) { animation-delay: 105ms; }
+.material-card:nth-child(5) { animation-delay: 140ms; }
+.material-card:nth-child(6) { animation-delay: 175ms; }
+
+@keyframes material-enter {
+    from { opacity: 0; transform: translateY(10px) scale(0.99); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
+>>>>>>> origin/dev
 }
 
 .material-card-meta {
@@ -1209,11 +1311,173 @@ body.login-mode .footer {
     clip-path: inset(50%);
 }
 
+<<<<<<< HEAD
+=======
+.settings-list {
+    margin-top: 26px;
+    border-top: 1px solid var(--border);
+}
+
+.setting-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(190px, 280px);
+    align-items: center;
+    gap: 30px;
+    border-bottom: 1px solid var(--border);
+    padding: 22px 0;
+}
+
+.setting-description h3 {
+    margin: 0;
+    color: var(--text);
+    font-family: 'Manrope', 'Segoe UI', sans-serif;
+    font-size: 15px;
+    font-weight: 700;
+}
+
+.setting-description p {
+    margin-top: 6px;
+    font-size: 13px;
+    line-height: 1.6;
+}
+
+.setting-control {
+    display: grid;
+    gap: 8px;
+}
+
+.settings-select {
+    width: 100%;
+    min-height: 42px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--surface);
+    color: var(--text);
+    font: inherit;
+    font-size: 13px;
+    padding: 0 12px;
+}
+
+.settings-select:focus-visible,
+.setting-control input:focus-visible {
+    outline: 2px solid var(--focus);
+    outline-offset: 2px;
+}
+
+.goal-control output {
+    color: var(--accent-strong);
+    font-family: 'Manrope', 'Segoe UI', sans-serif;
+    font-size: 18px;
+    font-weight: 800;
+    text-align: right;
+}
+
+.goal-control input {
+    width: 100%;
+    accent-color: var(--accent-strong);
+    cursor: pointer;
+}
+
+.range-labels {
+    display: flex;
+    justify-content: space-between;
+    color: var(--muted);
+    font-size: 10px;
+}
+
+.setting-toggle {
+    position: relative;
+    display: flex;
+    justify-self: end;
+}
+
+.setting-toggle input {
+    position: absolute;
+    width: 44px;
+    height: 26px;
+    margin: 0;
+    opacity: 0;
+}
+
+.setting-toggle span[aria-hidden="true"] {
+    position: relative;
+    width: 44px;
+    height: 26px;
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    background: var(--page-bg);
+    pointer-events: none;
+    transition: background-color 180ms ease, border-color 180ms ease;
+}
+
+.setting-toggle span[aria-hidden="true"]::after {
+    position: absolute;
+    top: 3px;
+    left: 3px;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: var(--muted);
+    content: "";
+    transition: background-color 180ms ease, transform 180ms ease;
+}
+
+.setting-toggle input:checked + span[aria-hidden="true"] {
+    border-color: var(--accent-strong);
+    background: var(--accent-soft);
+}
+
+.setting-toggle input:checked + span[aria-hidden="true"]::after {
+    background: var(--accent-strong);
+    transform: translateX(18px);
+}
+
+.setting-toggle input:focus-visible + span[aria-hidden="true"] {
+    outline: 2px solid var(--focus);
+    outline-offset: 3px;
+}
+
+.settings-saved {
+    margin-top: 18px !important;
+    font-size: 12px !important;
+}
+
+.home-study-goal {
+    margin-top: 26px !important;
+    border-left: 3px solid var(--accent);
+    padding: 4px 0 4px 12px;
+}
+
+.home-study-goal strong {
+    color: var(--accent-strong);
+}
+
+:root[data-text-size="large"] .content p,
+:root[data-text-size="large"] .material-card p,
+:root[data-text-size="large"] .setting-description p {
+    font-size: 17px;
+    line-height: 1.75;
+}
+
+:root[data-motion="reduced"] *,
+:root[data-motion="reduced"] *::before,
+:root[data-motion="reduced"] *::after {
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+}
+
+>>>>>>> origin/dev
 .footer {
     grid-area: footer;
     border-top: 1px solid var(--border);
     background: var(--surface);
+<<<<<<< HEAD
     padding: 7px 14px;
+=======
+    padding: 16px 24px;
+>>>>>>> origin/dev
     text-align: center;
 }
 
@@ -1228,6 +1492,7 @@ a:focus-visible {
     outline-offset: 3px;
 }
 
+<<<<<<< HEAD
 @media (max-width: 900px) {
     body {
         grid-template-columns: 220px minmax(0, 1fr);
@@ -1244,6 +1509,12 @@ a:focus-visible {
     body {
         grid-template-columns: 1fr;
         grid-template-rows: auto auto minmax(0, 1fr) auto;
+=======
+@media (max-width: 640px) {
+    body {
+        grid-template-columns: 1fr;
+        grid-template-rows: 66px auto 1fr auto;
+>>>>>>> origin/dev
         grid-template-areas:
             "header"
             "sidebar"
@@ -1252,7 +1523,10 @@ a:focus-visible {
     }
 
     .topbar {
+<<<<<<< HEAD
         min-height: 54px;
+=======
+>>>>>>> origin/dev
         padding: 0 18px;
     }
 
@@ -1269,6 +1543,7 @@ a:focus-visible {
         gap: 10px;
     }
 
+<<<<<<< HEAD
     .user-actions {
         gap: 8px;
     }
@@ -1291,6 +1566,12 @@ a:focus-visible {
 
     .theme-label {
         display: none;
+=======
+    .theme-switch button {
+        min-height: 28px;
+        font-size: 10px;
+        padding: 0 6px;
+>>>>>>> origin/dev
     }
 
     .user-name {
@@ -1302,14 +1583,21 @@ a:focus-visible {
     }
 
     .sidebar {
+<<<<<<< HEAD
         position: static;
         height: auto;
         overflow: visible;
+=======
+        position: sticky;
+        z-index: 1;
+        top: 66px;
+>>>>>>> origin/dev
         border-right: 0;
         border-bottom: 1px solid var(--border);
         padding: 8px 12px;
     }
 
+<<<<<<< HEAD
     .sidebar[data-open="false"] {
         display: none;
     }
@@ -1341,10 +1629,28 @@ a:focus-visible {
         font-size: 11px;
         line-height: 1.2;
         text-align: left;
+=======
+    .sidebar ul {
+        display: grid;
+        grid-template-columns: repeat(5, minmax(0, 1fr));
+        gap: 4px;
+    }
+
+    .sidebar a {
+        min-height: 54px;
+        flex-direction: column;
+        justify-content: center;
+        gap: 3px;
+        padding: 4px 2px;
+        font-size: 10px;
+        line-height: 1.2;
+        text-align: center;
+>>>>>>> origin/dev
         white-space: normal;
     }
 
     .sidebar a::before {
+<<<<<<< HEAD
         width: 18px;
         flex: 0 0 18px;
         font-size: 16px;
@@ -1362,10 +1668,17 @@ a:focus-visible {
         box-shadow: inset 0 0 0 1px var(--focus);
     }
 
+=======
+        width: auto;
+        line-height: 1;
+    }
+
+>>>>>>> origin/dev
     .content {
         padding: 43px 22px 60px;
     }
 
+<<<<<<< HEAD
     .home-welcome {
         min-height: 0;
         padding: 24px;
@@ -1389,22 +1702,35 @@ a:focus-visible {
 
     .content.login-content {
         padding: 16px;
+=======
+    .setting-row {
+        grid-template-columns: minmax(0, 1fr);
+        gap: 14px;
+    }
+
+    .setting-toggle {
+        justify-self: start;
+>>>>>>> origin/dev
     }
 
     .subject-picker {
         width: 100%;
     }
 
+<<<<<<< HEAD
     .subject-picker-label {
         position: static;
     }
 
+=======
+>>>>>>> origin/dev
     .subject-picker-trigger,
     .subject-options {
         width: 100%;
     }
 }
 
+<<<<<<< HEAD
 @media (max-width: 560px) {
     .topbar {
         min-height: 54px;
@@ -1633,6 +1959,8 @@ a:focus-visible {
     }
 }
 
+=======
+>>>>>>> origin/dev
 @media (max-width: 390px) {
     .sidebar {
         padding-right: 7px;
@@ -1643,6 +1971,7 @@ a:focus-visible {
         font-size: 9px;
     }
 
+<<<<<<< HEAD
     .topbar {
         padding-right: 12px;
         padding-left: 12px;
@@ -1666,6 +1995,10 @@ a:focus-visible {
 @media (max-width: 430px) {
     .home-welcome-art {
         display: none;
+=======
+    .user-info {
+        gap: 7px;
+>>>>>>> origin/dev
     }
 }
 

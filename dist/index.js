@@ -1,7 +1,13 @@
+<<<<<<< HEAD
 const pageContent = document.querySelector('#page-content');
 const pageLinks = document.querySelectorAll('[data-page]');
 const sidebar = document.querySelector('#primary-navigation');
 const menuToggle = document.querySelector('.menu-toggle');
+=======
+const themeButtons = document.querySelectorAll('[data-theme-choice]');
+const pageContent = document.querySelector('#page-content');
+const pageLinks = document.querySelectorAll('[data-page]');
+>>>>>>> origin/dev
 const savedTheme = localStorage.getItem('theme');
 const initialTheme = savedTheme === 'dark' ? 'dark' : 'light';
 const materials = [
@@ -49,6 +55,7 @@ const materials = [
     },
 ];
 const categories = ['Todos', 'Matemática', 'Português', 'Ciências'];
+<<<<<<< HEAD
 const pageHashes = {
     home: '#home',
     materials: '#materials',
@@ -102,6 +109,17 @@ function setMobileMenuOpen(isOpen) {
     if (label)
         label.textContent = isOpen ? 'Fechar' : 'Menu';
 }
+=======
+let activeCategory = 'Todos';
+let searchQuery = '';
+function setTheme(theme) {
+    document.documentElement.dataset.theme = theme;
+    localStorage.setItem('theme', theme);
+    themeButtons.forEach((button) => {
+        button.setAttribute('aria-pressed', String(button.dataset.themeChoice === theme));
+    });
+}
+>>>>>>> origin/dev
 function renderSubjectPicker(page) {
     const optionsId = `${page}-subject-options`;
     return `
@@ -134,36 +152,83 @@ function setSubjectMenuOpen(picker, isOpen) {
 function renderMaterials() {
     if (!pageContent)
         return;
+<<<<<<< HEAD
     const filteredMaterials = getFilteredMaterials((material) => `${material.title} ${material.subject} ${material.description}`);
+=======
+    const normalizedQuery = searchQuery.trim().toLocaleLowerCase('pt-BR');
+    const filteredMaterials = materials.filter((material) => {
+        const matchesCategory = activeCategory === 'Todos' || material.subject === activeCategory;
+        const searchableText = `${material.title} ${material.subject} ${material.description}`.toLocaleLowerCase('pt-BR');
+        return matchesCategory && searchableText.includes(normalizedQuery);
+    });
+>>>>>>> origin/dev
     const list = pageContent.querySelector('[data-material-list]');
     const count = pageContent.querySelector('[data-material-count]');
     if (!list || !count)
         return;
     count.textContent = `${filteredMaterials.length} ${filteredMaterials.length === 1 ? 'material encontrado' : 'materiais encontrados'}`;
     list.innerHTML = filteredMaterials.length
+<<<<<<< HEAD
         ? renderMaterialCards(filteredMaterials)
+=======
+        ? filteredMaterials.map((material) => `
+			<article class="material-card">
+				<div class="material-card-meta">
+					<span class="material-subject">${material.subject}</span>
+					<span class="material-format">${material.format}</span>
+				</div>
+				<h3>${material.title}</h3>
+				<p>${material.description}</p>
+			</article>
+		`).join('')
+>>>>>>> origin/dev
         : '<p class="empty-state">Nenhum material encontrado. Tente outro termo ou disciplina.</p>';
 }
 function renderSummaries() {
     if (!pageContent)
         return;
+<<<<<<< HEAD
     const filteredMaterials = getFilteredMaterials((material) => `${material.title} ${material.subject} ${material.summary}`);
+=======
+    const normalizedQuery = searchQuery.trim().toLocaleLowerCase('pt-BR');
+    const filteredMaterials = materials.filter((material) => {
+        const matchesCategory = activeCategory === 'Todos' || material.subject === activeCategory;
+        const searchableText = `${material.title} ${material.subject} ${material.summary}`.toLocaleLowerCase('pt-BR');
+        return matchesCategory && searchableText.includes(normalizedQuery);
+    });
+>>>>>>> origin/dev
     const list = pageContent.querySelector('[data-summary-list]');
     const count = pageContent.querySelector('[data-summary-count]');
     if (!list || !count)
         return;
     count.textContent = `${filteredMaterials.length} ${filteredMaterials.length === 1 ? 'resumo encontrado' : 'resumos encontrados'}`;
     list.innerHTML = filteredMaterials.length
+<<<<<<< HEAD
         ? renderMaterialCards(filteredMaterials, true)
+=======
+        ? filteredMaterials.map((material) => `
+			<article class="material-card">
+				<div class="material-card-meta">
+					<span class="material-subject">${material.subject}</span>
+					<span class="material-format">${material.format}</span>
+				</div>
+				<h3>${material.title}</h3>
+				<p class="material-summary">${material.summary}</p>
+			</article>
+		`).join('')
+>>>>>>> origin/dev
         : '<p class="empty-state">Nenhum resumo encontrado. Tente outro termo ou disciplina.</p>';
 }
 function renderPage(page) {
     if (!pageContent)
         return;
+<<<<<<< HEAD
     const isAuthPage = page === 'login' || page === 'register';
     document.body.classList.toggle('login-mode', isAuthPage);
     pageContent.classList.toggle('login-content', isAuthPage);
     pageContent.classList.toggle('home-content', page === 'home');
+=======
+>>>>>>> origin/dev
     pageLinks.forEach((link) => {
         if (link.dataset.page === page) {
             link.setAttribute('aria-current', 'page');
@@ -174,6 +239,7 @@ function renderPage(page) {
     });
     if (page === 'home') {
         pageContent.innerHTML = `
+<<<<<<< HEAD
 			<section class="home-dashboard" aria-labelledby="home-title">
 				<div class="home-welcome">
 					<div class="home-welcome-copy">
@@ -304,6 +370,13 @@ function renderPage(page) {
         });
         return;
     }
+=======
+			<h2>Bem-vindo ao Reforço Escolar</h2>
+			<p>Este é o seu painel de reforço escolar. Aqui você pode acessar materiais de estudo, acompanhar seu progresso e muito mais.</p>
+		`;
+        return;
+    }
+>>>>>>> origin/dev
     activeCategory = 'Todos';
     searchQuery = '';
     const isSummariesPage = page === 'summaries';
@@ -357,11 +430,17 @@ function renderPage(page) {
         });
     }
     subjectPicker?.addEventListener('click', (event) => {
+<<<<<<< HEAD
         if (!(event.target instanceof Element))
             return;
         const option = event.target.closest('[data-category]');
         const category = option?.dataset.category;
         if (!option || !isSubjectFilter(category))
+=======
+        const option = event.target.closest('[data-category]');
+        const category = option?.dataset.category;
+        if (!option || !categories.includes(category))
+>>>>>>> origin/dev
             return;
         activeCategory = category;
         const selectedSubject = subjectPicker.querySelector('[data-selected-subject]');
@@ -382,8 +461,11 @@ function renderPage(page) {
             subjectTrigger?.focus();
             return;
         }
+<<<<<<< HEAD
         if (!(event.target instanceof HTMLElement))
             return;
+=======
+>>>>>>> origin/dev
         const target = event.target;
         if (target.closest('[data-subject-trigger]') && event.key === 'ArrowDown') {
             event.preventDefault();
@@ -406,23 +488,34 @@ function pageFromHash() {
         return 'materials';
     if (window.location.hash === '#summaries')
         return 'summaries';
+<<<<<<< HEAD
     if (window.location.hash === '#login')
         return 'login';
     if (window.location.hash === '#register')
         return 'register';
+=======
+>>>>>>> origin/dev
     return 'home';
 }
 pageLinks.forEach((link) => {
     link.addEventListener('click', (event) => {
         const page = link.dataset.page;
+<<<<<<< HEAD
         if (page !== 'home' && page !== 'materials' && page !== 'summaries' && page !== 'login' && page !== 'register')
             return;
         event.preventDefault();
         const hash = pageHashes[page];
+=======
+        if (page !== 'home' && page !== 'materials' && page !== 'summaries')
+            return;
+        event.preventDefault();
+        const hash = page === 'materials' ? '#materials' : page === 'summaries' ? '#summaries' : '#home';
+>>>>>>> origin/dev
         if (window.location.hash !== hash) {
             window.history.pushState(null, '', hash);
         }
         renderPage(page);
+<<<<<<< HEAD
         setMobileMenuOpen(false);
     });
 });
@@ -460,6 +553,24 @@ document.addEventListener('click', (event) => {
     if (theme === 'light' || theme === 'dark') {
         setTheme(theme);
     }
+=======
+    });
+});
+window.addEventListener('popstate', () => renderPage(pageFromHash()));
+document.addEventListener('pointerdown', (event) => {
+    const subjectPicker = pageContent?.querySelector('[data-subject-picker]');
+    if (subjectPicker?.dataset.open === 'true' && !subjectPicker.contains(event.target)) {
+        setSubjectMenuOpen(subjectPicker, false);
+    }
+});
+themeButtons.forEach((button) => {
+    button.addEventListener('click', () => {
+        const theme = button.dataset.themeChoice;
+        if (theme === 'light' || theme === 'dark') {
+            setTheme(theme);
+        }
+    });
+>>>>>>> origin/dev
 });
 setTheme(initialTheme);
 renderPage(pageFromHash());
