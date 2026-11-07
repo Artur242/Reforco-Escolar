@@ -9,10 +9,66 @@ const profilePhotoInput = document.querySelector<HTMLInputElement>('[data-profil
 const profilePhotoImage = document.querySelector<HTMLImageElement>('[data-profile-photo]');
 const profilePhotoPlaceholder = document.querySelector<SVGElement>('.profile-photo-placeholder');
 const profilePhotoStatus = document.querySelector<HTMLElement>('[data-profile-photo-status]');
+const userNameElement = document.querySelector<HTMLElement>('.user-name');
 let classroomBoardResizeHandler: (() => void) | null = null;
 const savedTheme = localStorage.getItem('theme');
 const initialTheme = savedTheme === 'dark' ? 'dark' : 'light';
 const savedProfilePhoto = localStorage.getItem('profile-photo');
+
+interface UserProfile {
+	nome: string;
+	tipo_usuario: 'professor' | 'aluno';
+}
+
+type ProfileRow = {
+	nome: string;
+	tipo_usuario: string;
+};
+
+function setUserProfile(profile: UserProfile | null): void {
+	document.body.dataset.userType = profile?.tipo_usuario ?? '';
+	if (userNameElement) {
+		userNameElement.textContent = profile ? `Bem-vindo, ${profile.nome}!` : 'Bem-vindo, Usuário!';
+	}
+}
+
+async function restoreUserProfile(): Promise<void> {
+	const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+	if (sessionError) {
+		console.error('Não foi possível recuperar a sessão do usuário.', sessionError);
+		return;
+	}
+
+	const userId = sessionData.session?.user.id;
+	if (!userId) {
+		setUserProfile(null);
+		return;
+	}
+
+	const { data: profile, error: profileError } = await supabase
+		.from('perfis')
+		.select('nome, tipo_usuario')
+		.eq('id', userId)
+		.single();
+
+	if (profileError || !profile) {
+		console.error('Não foi possível carregar o perfil do usuário.', profileError);
+		return;
+	}
+
+	const userType = String(profile.tipo_usuario).trim().toLowerCase();
+	if (
+		typeof profile.nome !== 'string'
+		|| !profile.nome.trim()
+		|| (userType !== 'aluno' && userType !== 'professor')
+	) {
+		console.error('O perfil do usuário possui dados inválidos.');
+		return;
+	}
+
+	setUserProfile({ nome: profile.nome.trim(), tipo_usuario: userType });
+	document.body.dataset.userId = userId;
+}
 
 function showProfilePhoto(dataUrl: string): void {
 	if (!profilePhotoButton || !profilePhotoImage || !profilePhotoPlaceholder) return;
@@ -27,7 +83,18 @@ type Page = 'home' | 'materials' | 'summaries' | 'classroom' | 'agenda' | 'perfo
 type Category = 'Matemática' | 'Português' | 'Ciências';
 type SubjectFilter = 'Todos' | Category;
 
+function escapeHtml(value: string): string {
+	return value.replace(/[&<>"']/g, (character) => ({
+		'&': '&amp;',
+		'<': '&lt;',
+		'>': '&gt;',
+		'"': '&quot;',
+		"'": '&#39;',
+	}[character] ?? character));
+}
+
 interface Material {
+	id?: string;
 	title: string;
 	subject: Category;
 	description: string;
@@ -35,50 +102,69 @@ interface Material {
 	format: string;
 }
 
-const materials: Material[] = [
-	{
-		title: 'Frações sem mistério',
-		subject: 'Matemática',
-		description: 'Aprenda a comparar, simplificar e operar frações com exemplos resolvidos.',
-		summary: 'Uma fração representa partes iguais de um todo. Para comparar frações, observe os denominadores ou use frações equivalentes. Na simplificação, divida o numerador e o denominador pelo mesmo número até chegar à forma irredutível.',
-		format: 'Resumo · 8 min',
-	},
-	{
-		title: 'Equações do 1º grau',
-		subject: 'Matemática',
-		description: 'Pratique como encontrar o valor da incógnita e conferir cada resultado.',
-		summary: 'Em uma equação do 1º grau, reúna os termos com incógnita de um lado e os números do outro, sempre realizando a mesma operação nos dois lados. Ao final, substitua o valor encontrado para verificar a igualdade.',
-		format: 'Exercícios · 12 questões',
-	},
-	{
-		title: 'Classes gramaticais',
-		subject: 'Português',
-		description: 'Um guia rápido para reconhecer substantivos, verbos, adjetivos e mais.',
-		summary: 'As classes gramaticais organizam as palavras de acordo com sua função. Substantivos nomeiam seres, verbos indicam ações ou estados e adjetivos caracterizam os nomes. Artigos, pronomes, advérbios e preposições completam os sentidos das frases.',
-		format: 'Guia · 6 min',
-	},
-	{
-		title: 'Interpretação de texto',
-		subject: 'Português',
-		description: 'Estratégias para localizar informações e identificar ideias principais.',
-		summary: 'Para interpretar um texto, leia com atenção, identifique o assunto e destaque as informações principais. Relacione título, contexto e argumentos para diferenciar fatos, opiniões e conclusões do autor.',
-		format: 'Atividade · 10 questões',
-	},
-	{
-		title: 'Sistema solar',
-		subject: 'Ciências',
-		description: 'Conheça os planetas, seus movimentos e a organização do sistema solar.',
-		summary: 'O sistema solar é formado pelo Sol, planetas, satélites, asteroides e cometas. Os planetas giram ao redor do Sol e também fazem o movimento de rotação, que produz a alternância entre dia e noite.',
-		format: 'Resumo · 7 min',
-	},
-	{
-		title: 'Cadeia alimentar',
-		subject: 'Ciências',
-		description: 'Entenda como a energia circula entre produtores, consumidores e decompositores.',
-		summary: 'Na cadeia alimentar, produtores fabricam seu próprio alimento, consumidores obtêm energia ao se alimentar de outros seres e decompositores reciclam a matéria orgânica. Assim, a energia passa de um nível trófico para outro.',
-		format: 'Guia · 5 min',
-	},
-];
+interface MaterialRow {
+	id: string;
+	titulo: string;
+	disciplina: string;
+	descricao: string;
+	resumo: string;
+	formato: string;
+}
+
+let materials: Material[] = [];
+
+interface AgendaEvent {
+	id: string;
+	titulo: string;
+	descricao: string | null;
+	inicio: string;
+	fim: string | null;
+	concluido: boolean;
+}
+
+interface PerformanceRecord {
+	disciplina: string;
+	media: number | null;
+	frequencia: number | null;
+	tarefas_concluidas: number;
+	tarefas_total: number;
+}
+
+interface Achievement {
+	titulo: string;
+	descricao: string | null;
+}
+
+async function loadMaterials(): Promise<void> {
+	const { data, error } = await supabase
+		.from('materiais')
+		.select('id, titulo, disciplina, descricao, resumo, formato')
+		.eq('publicado', true)
+		.order('criado_em', { ascending: false });
+
+	if (error) {
+		console.error('Não foi possível carregar os materiais.', error);
+		return;
+	}
+
+	materials = (data as MaterialRow[] | null ?? []).map((item) => ({
+		id: item.id,
+		title: item.titulo,
+		subject: item.disciplina as Category,
+		description: item.descricao,
+		summary: item.resumo,
+		format: item.formato,
+	}));
+}
+
+async function getCurrentUserId(): Promise<string | null> {
+	const { data, error } = await supabase.auth.getSession();
+	if (error) {
+		console.error('Não foi possível recuperar a sessão atual.', error);
+		return null;
+	}
+	return data.session?.user.id ?? null;
+}
 
 const categories: SubjectFilter[] = ['Todos', 'Matemática', 'Português', 'Ciências'];
 const pageHashes: Record<Page, string> = {
@@ -117,11 +203,11 @@ function renderMaterialCards(items: Material[], showSummary = false): string {
 		return `
 			<article class="material-card">
 				<div class="material-card-meta">
-					<span class="material-subject">${material.subject}</span>
-					<span class="material-format">${material.format}</span>
+					<span class="material-subject">${escapeHtml(material.subject)}</span>
+					<span class="material-format">${escapeHtml(material.format)}</span>
 				</div>
-				<h3>${material.title}</h3>
-				<p${descriptionClass}>${description}</p>
+				<h3>${escapeHtml(material.title)}</h3>
+				<p${descriptionClass}>${escapeHtml(description)}</p>
 			</article>
 		`;
 	}).join('');
@@ -223,6 +309,127 @@ function renderSummaries(): void {
 		: '<p class="empty-state">Nenhum resumo encontrado. Tente outro termo ou disciplina.</p>';
 }
 
+async function loadAgendaData(): Promise<void> {
+	const userId = await getCurrentUserId();
+	if (!userId || !pageContent) return;
+
+	const { data, error } = await supabase
+		.from('eventos_agenda')
+		.select('id, titulo, descricao, inicio, fim, concluido')
+		.eq('aluno_id', userId)
+		.order('inicio', { ascending: true })
+		.limit(20);
+
+	if (error) {
+		console.error('Não foi possível carregar a agenda.', error);
+		return;
+	}
+
+	const events = (data ?? []) as AgendaEvent[];
+	const list = pageContent.querySelector<HTMLOListElement>('.agenda-event-list');
+	const count = pageContent.querySelector<HTMLElement>('.agenda-count');
+	const notice = pageContent.querySelector<HTMLElement>('.agenda-demo-notice');
+	if (notice) notice.textContent = 'Eventos sincronizados com sua agenda.';
+	if (count) count.textContent = `${events.length} ${events.length === 1 ? 'evento' : 'eventos'}`;
+	if (!list) return;
+	list.innerHTML = events.length ? events.map((event) => {
+		const date = new Date(event.inicio);
+		const dateLabel = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: 'short' }).format(date).replace('.', '');
+		const timeLabel = new Intl.DateTimeFormat('pt-BR', { hour: '2-digit', minute: '2-digit' }).format(date);
+		return `<li class="agenda-event"><div class="agenda-date"><strong>${dateLabel.split(' ')[0]}</strong><span>${dateLabel.split(' ')[1] ?? ''}</span></div><div class="agenda-event-copy"><span class="agenda-event-type agenda-class-type">${event.concluido ? 'Concluído' : 'Atividade'}</span><h4>${event.titulo}</h4><p><span aria-hidden="true">◷</span> ${timeLabel}${event.descricao ? ` <span class="agenda-event-separator">·</span> ${event.descricao}` : ''}</p></div></li>`;
+	}).join('') : '<li class="empty-state">Nenhum evento cadastrado.</li>';
+}
+
+async function loadPerformanceData(): Promise<void> {
+	const userId = await getCurrentUserId();
+	if (!userId || !pageContent) return;
+
+	const [performanceResult, achievementResult] = await Promise.all([
+		supabase.from('desempenho_alunos').select('disciplina, media, frequencia, tarefas_concluidas, tarefas_total').eq('aluno_id', userId),
+		supabase.from('conquistas_alunos').select('titulo, descricao').eq('aluno_id', userId).order('conquistada_em', { ascending: false }),
+	]);
+	if (performanceResult.error) {
+		console.error('Não foi possível carregar o desempenho.', performanceResult.error);
+		return;
+	}
+
+	const records = (performanceResult.data ?? []) as PerformanceRecord[];
+	const achievements = (achievementResult.data ?? []) as Achievement[];
+	const average = records.length ? records.reduce((sum, item) => sum + (item.media ?? 0), 0) / records.length : 0;
+	const attendance = records.length ? records.reduce((sum, item) => sum + (item.frequencia ?? 0), 0) / records.length : 0;
+	const completed = records.reduce((sum, item) => sum + item.tarefas_concluidas, 0);
+	const total = records.reduce((sum, item) => sum + item.tarefas_total, 0);
+	const stats = pageContent.querySelectorAll<HTMLElement>('.performance-stat-card strong');
+	if (stats[0]) stats[0].innerHTML = `${average.toFixed(1).replace('.', ',')} <small>/ 10</small>`;
+	if (stats[1]) stats[1].innerHTML = `${attendance.toFixed(0)}<small>%</small>`;
+	if (stats[2]) stats[2].innerHTML = `${completed} <small>/ ${total}</small>`;
+	if (stats[3]) stats[3].innerHTML = `${achievements.length} <small>medalhas</small>`;
+	const attendanceSummary = pageContent.querySelector<HTMLElement>('.performance-attendance-summary strong');
+	if (attendanceSummary) attendanceSummary.textContent = `${attendance.toFixed(0)}%`;
+	const attendanceProgress = pageContent.querySelector<HTMLElement>('.performance-attendance-progress');
+	if (attendanceProgress) {
+		attendanceProgress.setAttribute('aria-valuenow', attendance.toFixed(0));
+		attendanceProgress.querySelector<HTMLElement>('span')?.style.setProperty('--progress', `${attendance}%`);
+	}
+	const attendanceDetail = pageContent.querySelector<HTMLElement>('.performance-attendance-detail');
+	if (attendanceDetail) {
+		attendanceDetail.textContent = records.length
+			? `${records.length} ${records.length === 1 ? 'registro' : 'registros'} de frequência`
+			: 'Nenhum registro de frequência.';
+	}
+	const notice = pageContent.querySelector<HTMLElement>('.performance-demo-notice');
+	if (notice) notice.textContent = 'Dados sincronizados com seu desempenho.';
+	const grades = pageContent.querySelector<HTMLElement>('.performance-grade-list');
+	if (grades) grades.innerHTML = records.length ? records.map((record) => {
+		const grade = record.media ?? 0;
+		return `<li class="performance-grade-row"><div class="performance-grade-label"><span>${record.disciplina}</span><strong>${grade.toFixed(1).replace('.', ',')}</strong></div><div class="performance-progress" role="progressbar" aria-valuemin="0" aria-valuemax="10" aria-valuenow="${grade}"><span style="--progress: ${grade * 10}%"></span></div></li>`;
+	}).join('') : '<li class="empty-state">Nenhum desempenho cadastrado.</li>';
+	const achievementList = pageContent.querySelector<HTMLElement>('.performance-achievement-list');
+	if (achievementList) {
+		achievementList.innerHTML = achievements.length
+			? achievements.map((achievement, index) => `<li><span class="performance-medal" aria-hidden="true">${index % 2 ? '⭐' : '🏅'}</span><span><strong>${escapeHtml(achievement.titulo)}</strong><small>${escapeHtml(achievement.descricao ?? '')}</small></span><span class="performance-earned">Conquistada</span></li>`).join('')
+			: '<li class="empty-state">Nenhuma conquista cadastrada.</li>';
+	}
+}
+
+async function loadClassroomData(): Promise<void> {
+	const currentUserId = await getCurrentUserId();
+	const { data: rooms, error: roomError } = await supabase
+		.from('salas_aula')
+		.select('id, titulo, descricao')
+		.eq('ativa', true)
+		.order('criada_em', { ascending: false })
+		.limit(1);
+	if (roomError) {
+		console.error('Não foi possível carregar as salas de aula.', roomError);
+		return;
+	}
+	const room = rooms?.[0];
+	if (!room || !pageContent) return;
+	pageContent.dataset.roomId = room.id;
+	if (currentUserId) document.body.dataset.userId = currentUserId;
+	const title = pageContent.querySelector<HTMLElement>('#classroom-title');
+	if (title) title.textContent = room.titulo;
+	const description = pageContent.querySelector<HTMLElement>('.classroom-heading p:last-child');
+	if (description && room.descricao) description.textContent = room.descricao;
+
+	const { data: messages, error: messageError } = await supabase
+		.from('mensagens_sala')
+		.select('conteudo, enviada_em, autor_id')
+		.eq('sala_id', room.id)
+		.order('enviada_em', { ascending: true })
+		.limit(100);
+	if (messageError) {
+		console.error('Não foi possível carregar as mensagens da sala.', messageError);
+		return;
+	}
+	const messageList = pageContent.querySelector<HTMLElement>('[data-classroom-messages]');
+	if (messageList) {
+		const messageRows = (messages ?? []) as Array<{ conteudo: string; enviada_em: string; autor_id: string }>;
+		messageList.innerHTML = messageRows.map((message) => `<div class="classroom-message"><strong>${message.autor_id === (document.body.dataset.userId ?? '') ? 'Você' : 'Participante'} <time>${new Intl.DateTimeFormat('pt-BR', { hour: '2-digit', minute: '2-digit' }).format(new Date(message.enviada_em))}</time></strong><p>${escapeHtml(message.conteudo)}</p></div>`).join('');
+	}
+}
+
 function renderPage(page: Page): void {
 	if (!pageContent) return;
 	if (classroomBoardResizeHandler) {
@@ -307,29 +514,29 @@ function renderPage(page: Page): void {
 						<h2 id="performance-title">Painel de Desempenho</h2>
 						<p>Acompanhe notas, frequência e conquistas ao longo dos estudos.</p>
 					</div>
-					<span class="performance-demo-badge">Dados de demonstração</span>
+					<span class="performance-demo-badge">Dados sincronizados</span>
 				</header>
 
 				<div class="performance-demo-notice" role="note">
-					<strong>Exemplo ilustrativo:</strong> estes indicadores são fictícios. Os dados reais do aluno ainda não estão conectados ao sistema.
+					<strong>Dados sincronizados:</strong> notas, frequência e conquistas carregadas do banco de dados.
 				</div>
 
 				<section class="performance-stat-grid" aria-label="Resumo do desempenho">
 					<article class="performance-stat-card">
 						<span class="performance-stat-icon" aria-hidden="true">▤</span>
-						<div><p>Média geral</p><strong>8,7 <small>/ 10</small></strong><span class="performance-stat-detail">Bom ritmo de aprendizagem</span></div>
+						<div><p>Média geral</p><strong>— <small>/ 10</small></strong><span class="performance-stat-detail">Calculada pelo banco</span></div>
 					</article>
 					<article class="performance-stat-card">
 						<span class="performance-stat-icon" aria-hidden="true">✓</span>
-						<div><p>Frequência</p><strong>94<small>%</small></strong><span class="performance-stat-detail">Presença nas aulas</span></div>
+						<div><p>Frequência</p><strong>—<small>%</small></strong><span class="performance-stat-detail">Presença nas aulas</span></div>
 					</article>
 					<article class="performance-stat-card">
 						<span class="performance-stat-icon" aria-hidden="true">✦</span>
-						<div><p>Tarefas concluídas</p><strong>12 <small>/ 15</small></strong><span class="performance-stat-detail">Neste período</span></div>
+						<div><p>Tarefas concluídas</p><strong>— <small>/ —</small></strong><span class="performance-stat-detail">Neste período</span></div>
 					</article>
 					<article class="performance-stat-card">
 						<span class="performance-stat-icon" aria-hidden="true">♛</span>
-						<div><p>Conquistas</p><strong>3 <small>medalhas</small></strong><span class="performance-stat-detail">Continue assim!</span></div>
+						<div><p>Conquistas</p><strong>— <small>medalhas</small></strong><span class="performance-stat-detail">Registradas no banco</span></div>
 					</article>
 				</section>
 
@@ -360,26 +567,23 @@ function renderPage(page: Page): void {
 							<div><h3 id="performance-attendance-title">Frequência nas aulas</h3><p>Participação neste trimestre</p></div>
 						</div>
 						<div class="performance-attendance-summary">
-							<strong>94%</strong>
+							<strong>—%</strong>
 							<span>de presença</span>
 						</div>
-						<div class="performance-progress performance-attendance-progress" role="progressbar" aria-label="Frequência nas aulas" aria-valuemin="0" aria-valuemax="100" aria-valuenow="94"><span style="--progress: 94%"></span></div>
-						<p class="performance-attendance-detail">15 aulas realizadas <span>·</span> 14 presenças</p>
+						<div class="performance-progress performance-attendance-progress" role="progressbar" aria-label="Frequência nas aulas" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span style="--progress: 0%"></span></div>
+						<p class="performance-attendance-detail">Nenhum registro de frequência.</p>
 					</section>
 
 					<section class="performance-panel performance-achievements" aria-labelledby="performance-achievements-title">
 						<div class="performance-panel-heading">
 							<div><h3 id="performance-achievements-title">Medalhas e conquistas</h3><p>Reconhecendo cada passo</p></div>
 						</div>
-						<ul class="performance-achievement-list">
-							<li><span class="performance-medal" aria-hidden="true">🏅</span><span><strong>Primeiro passo</strong><small>Concluiu a primeira tarefa</small></span><span class="performance-earned">Conquistada</span></li>
-							<li><span class="performance-medal" aria-hidden="true">⭐</span><span><strong>Presença nota 10</strong><small>Participou de 10 aulas</small></span><span class="performance-earned">Conquistada</span></li>
-							<li><span class="performance-medal performance-medal-next" aria-hidden="true">🎯</span><span><strong>Foco nos estudos</strong><small>Conclua mais 3 tarefas</small></span><span class="performance-in-progress">Em progresso</span></li>
-						</ul>
+						<ul class="performance-achievement-list"><li class="empty-state">Carregando conquistas...</li></ul>
 					</section>
 				</div>
 			</section>
 		`;
+		void loadPerformanceData();
 		return;
 	}
 
@@ -405,11 +609,11 @@ function renderPage(page: Page): void {
 						<h2 id="agenda-title">Agenda</h2>
 						<p>Confira os próximos encontros e prazos para não deixar nada passar.</p>
 					</div>
-					<span class="agenda-demo-badge">Agenda de demonstração</span>
+					<span class="agenda-demo-badge">Agenda sincronizada</span>
 				</header>
 
 				<div class="agenda-demo-notice" role="note">
-					<strong>Exemplo ilustrativo:</strong> estes horários e atividades são fictícios e ainda não estão conectados a uma agenda real.
+					<strong>Agenda sincronizada:</strong> os eventos abaixo vêm do banco de dados.
 				</div>
 
 				<div class="agenda-layout">
@@ -470,6 +674,7 @@ function renderPage(page: Page): void {
 				</div>
 			</section>
 		`;
+		void loadAgendaData();
 		return;
 	}
 
@@ -482,9 +687,9 @@ function renderPage(page: Page): void {
 						<h2 id="classroom-title">Aula de Matemática</h2>
 						<p>Estude junto, converse e resolva exercícios na lousa.</p>
 					</div>
-					<span class="classroom-demo-badge">Modo demonstração</span>
+					<span class="classroom-demo-badge">Sala conectada</span>
 				</header>
-				<p class="classroom-demo-notice">Esta sala é uma demonstração local. As pessoas, a chamada e o chat não estão conectados a outros dispositivos.</p>
+				<p class="classroom-demo-notice">A sala e as mensagens são carregadas do banco de dados.</p>
 				<div class="classroom-layout">
 					<div class="classroom-main">
 						<section class="classroom-call" aria-label="Participantes da chamada">
@@ -549,7 +754,7 @@ function renderPage(page: Page): void {
 						<div class="classroom-panel-heading">
 							<div>
 								<h3 id="chat-title">Conversa</h3>
-								<p>Mensagens desta demonstração</p>
+								<p>Mensagens da sala</p>
 							</div>
 							<span class="classroom-chat-count" aria-label="3 participantes">3</span>
 						</div>
@@ -674,13 +879,28 @@ function renderPage(page: Page): void {
 			});
 		});
 
-		pageContent.querySelector<HTMLFormElement>('[data-classroom-chat]')?.addEventListener('submit', (event) => {
+		pageContent.querySelector<HTMLFormElement>('[data-classroom-chat]')?.addEventListener('submit', async (event) => {
 			event.preventDefault();
 			const form = event.currentTarget as HTMLFormElement;
 			const input = form.elements.namedItem('message');
 			if (!(input instanceof HTMLInputElement)) throw new Error('O campo de mensagem da sala não foi encontrado.');
 			const text = input.value.trim();
 			if (!text) return;
+			const roomId = pageContent.dataset.roomId;
+			const userId = await getCurrentUserId();
+			if (!roomId || !userId) {
+				console.error('Não foi possível identificar a sala ou o usuário atual.');
+				return;
+			}
+			const { error } = await supabase.from('mensagens_sala').insert({
+				sala_id: roomId,
+				autor_id: userId,
+				conteudo: text,
+			});
+			if (error) {
+				console.error('Não foi possível enviar a mensagem da sala.', error);
+				return;
+			}
 			const message = document.createElement('div');
 			message.className = 'classroom-message classroom-message-self';
 			const author = document.createElement('strong');
@@ -698,6 +918,7 @@ function renderPage(page: Page): void {
 			input.value = '';
 			input.focus();
 		});
+		void loadClassroomData();
 
 		pageContent.querySelector<HTMLButtonElement>('[data-classroom-leave]')?.addEventListener('click', () => {
 			window.history.pushState(null, '', pageHashes.home);
@@ -832,6 +1053,58 @@ function renderPage(page: Page): void {
 						throw new Error('O Supabase não retornou o usuário autenticado.');
 					}
 
+					let { data: profile, error: profileError } = await supabase
+						.from('perfis')
+						.select('nome, tipo_usuario')
+						.eq('id', data.user.id)
+						.single();
+
+					if (profileError || !profile) {
+						const metadata = data.user.user_metadata as { full_name?: unknown };
+						const metadataName = typeof metadata.full_name === 'string' ? metadata.full_name.trim() : '';
+						const fallbackName = metadataName || email.split('@')[0];
+						const { error: createProfileError } = await supabase.from('perfis').upsert({
+							id: data.user.id,
+							nome: fallbackName,
+							email: data.user.email ?? email,
+							tipo_usuario: 'aluno',
+						}, { onConflict: 'id' });
+
+						if (createProfileError) {
+							console.error('Não foi possível carregar ou criar o perfil do usuário.', {
+								profileError,
+								createProfileError,
+							});
+							status.textContent = 'Não foi possível criar o perfil. Verifique as políticas da tabela perfis.';
+							await supabase.auth.signOut();
+							return;
+						}
+
+						const profileResult = await supabase
+							.from('perfis')
+							.select('nome, tipo_usuario')
+							.eq('id', data.user.id)
+							.single();
+						profile = profileResult.data as ProfileRow | null;
+						profileError = profileResult.error;
+					}
+
+					if (profileError || !profile) {
+						console.error('O perfil não pôde ser recuperado após a criação.', profileError);
+						status.textContent = 'O perfil foi criado, mas não pôde ser carregado. Verifique as políticas da tabela perfis.';
+						await supabase.auth.signOut();
+						return;
+					}
+
+					const userType = String(profile.tipo_usuario).trim().toLowerCase();
+					if (userType !== 'aluno' && userType !== 'professor') {
+						status.textContent = 'O tipo de usuário cadastrado é inválido.';
+						await supabase.auth.signOut();
+						return;
+					}
+
+					setUserProfile({ nome: profile.nome, tipo_usuario: userType });
+					document.body.dataset.userId = data.user.id;
 					status.textContent = 'Login realizado com sucesso!';
 					form.reset();
 					window.history.pushState(null, '', pageHashes.home);
@@ -844,12 +1117,11 @@ function renderPage(page: Page): void {
 					status.textContent = 'A senha deve ter pelo menos 6 caracteres.';
 					return;
 				}
-
 				const { data, error } = await supabase.auth.signUp({
 					email,
 					password,
 					options: {
-						data: { full_name: fullName, role: 'student' },
+						data: { full_name: fullName, tipo_usuario: 'aluno' },
 					},
 				});
 
@@ -870,25 +1142,9 @@ function renderPage(page: Page): void {
 					throw new Error('O Supabase não retornou o usuário criado.');
 				}
 
-				if (data.session) {
-					const { error: profileError } = await supabase.from('profiles').insert({
-						id: data.user.id,
-						full_name: fullName,
-						role: 'student',
-					});
-
-					if (profileError) {
-						console.error('Usuário criado, mas o perfil não foi salvo.', profileError);
-						status.textContent = 'A conta foi criada, mas não foi possível salvar o perfil.';
-						return;
-					}
-
-					status.textContent = 'Cadastro realizado com sucesso!';
-					form.reset();
-					return;
-				}
-
-				status.textContent = 'Cadastro realizado! Confirme seu e-mail para ativar a conta.';
+				status.textContent = data.session
+					? 'Cadastro realizado com sucesso!'
+					: 'Cadastro realizado! Confirme seu e-mail para ativar a conta.';
 				form.reset();
 			} catch (error) {
 				console.error('Erro ao cadastrar usuário.', error);
@@ -940,6 +1196,11 @@ function renderPage(page: Page): void {
 	`;
 
 	const searchSelector = isSummariesPage ? '[data-summary-search]' : '[data-material-search]';
+	void loadMaterials().then(() => {
+		if (window.location.hash === pageHashes[page]) {
+			isSummariesPage ? renderSummaries() : renderMaterials();
+		}
+	});
 	const searchInput = pageContent.querySelector<HTMLInputElement>(searchSelector);
 	searchInput?.addEventListener('input', (event) => {
 		searchQuery = (event.currentTarget as HTMLInputElement).value;
@@ -1012,7 +1273,7 @@ function pageFromHash(): Page {
 	if (window.location.hash === '#performance') return 'performance';
 	if (window.location.hash === '#login') return 'login';
 	if (window.location.hash === '#register') return 'register';
-	return 'home';
+	return 'login';
 }
 
 pageLinks.forEach((link) => {
@@ -1041,6 +1302,7 @@ pageLinks.forEach((link) => {
 		}
 
 		window.history.pushState(null, '', pageHashes.login);
+		setUserProfile(null);
 		renderPage('login');
 	});
 });
@@ -1132,4 +1394,8 @@ if (savedProfilePhoto?.startsWith('data:image/')) {
 }
 
 setTheme(initialTheme);
+if (!window.location.hash) {
+	window.history.replaceState(null, '', pageHashes.login);
+}
 renderPage(pageFromHash());
+void restoreUserProfile();
