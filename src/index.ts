@@ -1,4 +1,4 @@
-import { supabase } from './supabaseClient.js';
+﻿import { supabase } from './supabaseClient.js';
 
 const pageContent = document.querySelector<HTMLElement>('#page-content');
 const pageLinks = document.querySelectorAll<HTMLAnchorElement>('[data-page]');
