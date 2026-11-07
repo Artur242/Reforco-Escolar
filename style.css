@@ -2240,6 +2240,97 @@ body.login-mode .footer {
     color: var(--accent-strong);
 }
 
+.material-details-button {
+    border: 0;
+    cursor: pointer;
+    display: inline-block;
+    margin-top: 16px;
+}
+
+.teacher-publisher-button {
+    border: 0;
+    cursor: pointer;
+    margin-top: 18px;
+}
+
+.content-modal {
+    border: 0;
+    border-radius: 12px;
+    color: var(--text);
+    max-width: min(620px, calc(100% - 32px));
+    padding: 0;
+    width: 100%;
+}
+
+.content-modal::backdrop {
+    background: rgb(15 23 42 / 55%);
+}
+
+.content-modal-form,
+.content-details {
+    background: var(--surface);
+    padding: 24px;
+}
+
+.content-modal-form {
+    display: grid;
+    gap: 14px;
+}
+
+.content-modal-form label {
+    display: grid;
+    gap: 6px;
+    font-size: 12px;
+    font-weight: 700;
+}
+
+.content-modal-form input,
+.content-modal-form textarea {
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--background);
+    color: var(--text);
+    font: inherit;
+    padding: 10px;
+}
+
+.content-modal-form > button {
+    border: 0;
+    border-radius: 6px;
+    background: var(--accent);
+    color: white;
+    cursor: pointer;
+    padding: 11px 16px;
+}
+
+.content-modal-heading {
+    align-items: flex-start;
+    display: flex;
+    justify-content: space-between;
+    gap: 16px;
+}
+
+.content-modal-heading h3 {
+    margin: 4px 0 0;
+}
+
+.modal-close {
+    border: 0;
+    background: transparent;
+    color: var(--muted);
+    cursor: pointer;
+    font-size: 24px;
+    line-height: 1;
+}
+
+.content-details-body {
+    border-top: 1px solid var(--border);
+    line-height: 1.7;
+    margin: 18px 0;
+    padding-top: 18px;
+    white-space: normal;
+}
+
 .empty-state {
     grid-column: 1 / -1;
     border: 1px dashed var(--border);

@@ -8,10 +8,50 @@ const profilePhotoInput = document.querySelector('[data-profile-photo-input]');
 const profilePhotoImage = document.querySelector('[data-profile-photo]');
 const profilePhotoPlaceholder = document.querySelector('.profile-photo-placeholder');
 const profilePhotoStatus = document.querySelector('[data-profile-photo-status]');
+const userNameElement = document.querySelector('.user-name');
 let classroomBoardResizeHandler = null;
 const savedTheme = localStorage.getItem('theme');
 const initialTheme = savedTheme === 'dark' ? 'dark' : 'light';
 const savedProfilePhoto = localStorage.getItem('profile-photo');
+let currentUserRole = null;
+async function loadCurrentProfile() {
+    const { data: authData, error: authError } = await supabase.auth.getUser();
+    if (authError || !authData.user)
+        return null;
+    const { data: profile, error: profileError } = await supabase
+        .from('profiles')
+        .select('full_name, role')
+        .eq('id', authData.user.id)
+        .maybeSingle();
+    if (profileError) {
+        console.error('Não foi possível carregar o perfil do usuário.', profileError);
+        return null;
+    }
+    currentUserRole = profile?.role === 'teacher' ? 'teacher' : 'student';
+    document.querySelectorAll('[data-teacher-only]').forEach((element) => {
+        element.hidden = currentUserRole !== 'teacher';
+    });
+    document.querySelectorAll('[data-student-only]').forEach((element) => {
+        element.hidden = currentUserRole === 'teacher';
+    });
+    return {
+        fullName: profile?.full_name?.trim() || authData.user.user_metadata.full_name?.trim() || authData.user.email?.split('@')[0] || null,
+        role: currentUserRole,
+    };
+}
+async function updateUserIdentity() {
+    const profile = await loadCurrentProfile();
+    if (!userNameElement)
+        return;
+    if (!profile) {
+        userNameElement.textContent = 'Bem-vindo!';
+        return;
+    }
+    const roleLabel = profile.role === 'teacher' ? 'professor(a)' : 'aluno(a)';
+    userNameElement.textContent = profile.fullName
+        ? `Bem-vindo, ${profile.fullName}! (${roleLabel})`
+        : `Bem-vindo, ${roleLabel}!`;
+}
 function showProfilePhoto(dataUrl) {
     if (!profilePhotoButton || !profilePhotoImage || !profilePhotoPlaceholder)
         return;
@@ -78,6 +118,576 @@ const pageHashes = {
 };
 let activeCategory = 'Todos';
 let searchQuery = '';
+let publishedContents = [];
+let selectedClassroomId = sessionStorage.getItem('selected-classroom');
+let classroomChannel = null;
+function escapeHtml(value) {
+    return value.replace(/[&<>"']/g, (character) => ({
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#039;',
+    }[character] ?? character));
+}
+function formatDateTime(value) {
+    return new Intl.DateTimeFormat('pt-BR', {
+        day: '2-digit',
+        month: 'short',
+        hour: '2-digit',
+        minute: '2-digit',
+    }).format(new Date(value)).replace('.', '');
+}
+async function renderAgendaFromDatabase() {
+    if (!pageContent)
+        return;
+    const { data: userData, error: userError } = await supabase.auth.getUser();
+    if (userError || !userData.user) {
+        pageContent.innerHTML = '<section class="agenda-page"><div class="agenda-demo-notice" role="status">Entre na sua conta para acessar sua agenda.</div></section>';
+        return;
+    }
+    const [eventsResult, assignmentsResult] = await Promise.all([
+        supabase.from('agenda_events').select('id, title, description, event_type, starts_at, ends_at')
+            .gte('starts_at', new Date().toISOString()).order('starts_at', { ascending: true }).limit(20),
+        supabase.from('assignments').select('id, title, due_at')
+            .not('due_at', 'is', null).gte('due_at', new Date().toISOString()).order('due_at', { ascending: true }).limit(20),
+    ]);
+    if (eventsResult.error)
+        throw eventsResult.error;
+    if (assignmentsResult.error)
+        throw assignmentsResult.error;
+    const events = (eventsResult.data ?? []);
+    const assignments = (assignmentsResult.data ?? []);
+    const items = [
+        ...events.map((event) => ({ title: event.title, type: event.event_type === 'deadline' ? 'Prazo' : event.event_type === 'activity' ? 'Atividade' : 'Aula', date: event.starts_at })),
+        ...assignments.map((assignment) => ({ title: assignment.title, type: 'Prazo', date: assignment.due_at })),
+    ].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()).slice(0, 20);
+    pageContent.innerHTML = `
+		<section class="agenda-page" aria-labelledby="agenda-title">
+			<header class="agenda-heading"><div><p class="section-label">ORGANIZE SEUS ESTUDOS</p><h2 id="agenda-title">Agenda</h2><p>Confira seus próximos compromissos e prazos.</p></div></header>
+			<div class="agenda-demo-notice" role="status">${items.length ? `${items.length} compromisso(s) encontrado(s).` : 'Você ainda não tem aulas ou atividades agendadas.'}</div>
+			<section class="agenda-panel" aria-labelledby="agenda-upcoming-title">
+				<div class="agenda-panel-heading"><div><h3 id="agenda-upcoming-title">Próximos compromissos</h3><p>Dados sincronizados com suas turmas.</p></div><span class="agenda-count">${items.length} itens</span></div>
+				${items.length ? `<ol class="agenda-event-list">${items.map((item) => `<li class="agenda-event"><div class="agenda-event-copy"><span class="agenda-event-type agenda-class-type">${escapeHtml(item.type)}</span><h4>${escapeHtml(item.title)}</h4><p>${formatDateTime(item.date)}</p></div></li>`).join('')}</ol>` : '<p class="empty-state">Nenhum compromisso encontrado.</p>'}
+			</section>
+		</section>
+	`;
+    if (currentUserRole === 'teacher') {
+        const user = await supabase.auth.getUser();
+        if (!user.error && user.data.user) {
+            const rooms = await supabase.from('classrooms').select('id, name').eq('teacher_id', user.data.user.id).order('name');
+            if (rooms.error)
+                throw rooms.error;
+            const agendaHeading = pageContent.querySelector('.agenda-heading');
+            agendaHeading?.insertAdjacentHTML('afterend', `
+				<form class="classroom-chat-form teacher-publisher-form" data-teacher-agenda-form>
+					<strong>Criar agenda</strong>
+					<select name="classroom_id" required>${(rooms.data ?? []).map((room) => `<option value="${room.id}">${escapeHtml(room.name)}</option>`).join('')}</select>
+					<input name="title" placeholder="Título" required>
+					<select name="event_type"><option value="class">Aula</option><option value="activity">Atividade</option><option value="deadline">Prazo</option></select>
+					<input name="starts_at" type="datetime-local" required>
+					<button type="submit">Criar agenda</button>
+					<span data-teacher-agenda-status role="status"></span>
+				</form>
+			`);
+            pageContent.querySelector('[data-teacher-agenda-form]')?.addEventListener('submit', async (event) => {
+                event.preventDefault();
+                const form = event.currentTarget;
+                if (!(form instanceof HTMLFormElement))
+                    return;
+                const data = new FormData(form);
+                const result = await supabase.from('agenda_events').insert({
+                    classroom_id: String(data.get('classroom_id')),
+                    created_by: user.data.user.id,
+                    title: String(data.get('title')).trim(),
+                    event_type: String(data.get('event_type')),
+                    starts_at: new Date(String(data.get('starts_at'))).toISOString(),
+                });
+                const status = form.querySelector('[data-teacher-agenda-status]');
+                if (result.error) {
+                    console.error('Não foi possível criar a agenda.', result.error);
+                    if (status)
+                        status.textContent = 'Não foi possível criar a agenda.';
+                    return;
+                }
+                form.reset();
+                if (status)
+                    status.textContent = 'Agenda criada com sucesso.';
+            });
+        }
+    }
+}
+function attachTeacherContentPublisher(contentType) {
+    if (!pageContent || currentUserRole !== 'teacher')
+        return;
+    const heading = pageContent.querySelector('.materials-heading');
+    if (!heading)
+        return;
+    heading.insertAdjacentHTML('afterend', `
+		<button class="home-primary-link teacher-publisher-button" type="button" data-open-content-modal>
+			Publicar ${contentType === 'summary' ? 'resumo' : 'material'}
+		</button>
+		<dialog class="content-modal" data-content-modal>
+			<form class="content-modal-form" data-teacher-content-publisher method="dialog">
+				<div class="content-modal-heading"><div><p class="section-label">NOVO CONTEÚDO</p><h3>Publicar ${contentType === 'summary' ? 'resumo' : 'material'}</h3></div><button type="button" class="modal-close" data-close-content-modal aria-label="Fechar">×</button></div>
+				<label>Título<input name="title" maxlength="120" required></label>
+				<label>Disciplina<input name="subject" maxlength="50" required></label>
+				<label>Texto completo<textarea name="description" rows="8"></textarea></label>
+				<label>Arquivo (opcional)<input name="attachment" type="file" accept=".pdf,.doc,.docx,.ppt,.pptx,.txt,image/*"></label>
+				<button type="submit">Publicar</button>
+				<span data-teacher-publisher-status role="status"></span>
+			</form>
+		</dialog>
+	`);
+    pageContent.querySelector('[data-open-content-modal]')?.addEventListener('click', () => {
+        pageContent.querySelector('[data-content-modal]')?.showModal();
+    });
+    pageContent.querySelector('[data-close-content-modal]')?.addEventListener('click', () => {
+        pageContent.querySelector('[data-content-modal]')?.close();
+    });
+    pageContent.querySelector('[data-teacher-content-publisher]')?.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        const form = event.currentTarget;
+        if (!(form instanceof HTMLFormElement))
+            return;
+        const data = new FormData(form);
+        const user = await supabase.auth.getUser();
+        if (user.error || !user.data.user)
+            throw user.error ?? new Error('Usuário não autenticado.');
+        const attachment = data.get('attachment');
+        const description = String(data.get('description') ?? '').trim();
+        if (!description && (!(attachment instanceof File) || attachment.size === 0)) {
+            const status = form.querySelector('[data-teacher-publisher-status]');
+            if (status)
+                status.textContent = 'Escreva o conteúdo ou selecione um arquivo.';
+            return;
+        }
+        let attachmentUrl = null;
+        let attachmentName = null;
+        if (attachment instanceof File && attachment.size > 0) {
+            const path = `${user.data.user.id}/${crypto.randomUUID()}-${attachment.name.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
+            const upload = await supabase.storage.from('teacher-contents').upload(path, attachment);
+            if (upload.error) {
+                console.error('Não foi possível enviar o arquivo.', upload.error);
+                const status = form.querySelector('[data-teacher-publisher-status]');
+                if (status)
+                    status.textContent = 'Não foi possível enviar o arquivo.';
+                return;
+            }
+            attachmentUrl = supabase.storage.from('teacher-contents').getPublicUrl(path).data.publicUrl;
+            attachmentName = attachment.name;
+        }
+        const result = await supabase.from('teacher_contents').insert({
+            teacher_id: user.data.user.id,
+            title: String(data.get('title')).trim(),
+            subject: String(data.get('subject')).trim(),
+            content_type: contentType,
+            description: description || null,
+            attachment_url: attachmentUrl,
+            attachment_name: attachmentName,
+        });
+        if (result.error) {
+            console.error('Não foi possível publicar o conteúdo.', result.error);
+            const status = form.querySelector('[data-teacher-publisher-status]');
+            if (status)
+                status.textContent = 'Não foi possível publicar.';
+            return;
+        }
+        form.reset();
+        const status = form.querySelector('[data-teacher-publisher-status]');
+        if (status)
+            status.textContent = 'Publicado com sucesso.';
+        pageContent.querySelector('[data-content-modal]')?.close();
+        await loadPublishedContents();
+        contentType === 'summary' ? await renderSummaries() : await renderMaterials();
+    });
+}
+async function loadPublishedContents() {
+    const result = await supabase
+        .from('teacher_contents')
+        .select('id, title, subject, content_type, description, attachment_url, attachment_name, created_at')
+        .order('created_at', { ascending: false });
+    if (result.error) {
+        console.error('Não foi possível carregar os conteúdos publicados.', result.error);
+        publishedContents = [];
+        return;
+    }
+    publishedContents = (result.data ?? []);
+}
+async function renderTeacherDashboard() {
+    if (!pageContent)
+        return;
+    const { data: authData, error: authError } = await supabase.auth.getUser();
+    if (authError || !authData.user || currentUserRole !== 'teacher') {
+        pageContent.innerHTML = '<section class="performance-page"><div class="performance-demo-notice" role="alert">Esta área é exclusiva para professores.</div></section>';
+        return;
+    }
+    const [roomsResult, contentsResult] = await Promise.all([
+        supabase.from('classrooms').select('id, name, subject, join_code').eq('teacher_id', authData.user.id).order('created_at', { ascending: false }),
+        supabase.from('teacher_contents').select('id, title, subject, content_type, description').eq('teacher_id', authData.user.id).order('created_at', { ascending: false }),
+    ]);
+    if (roomsResult.error)
+        throw roomsResult.error;
+    if (contentsResult.error)
+        throw contentsResult.error;
+    const rooms = roomsResult.data ?? [];
+    const contents = contentsResult.data ?? [];
+    const roomIds = rooms.map((room) => room.id);
+    const membersResult = roomIds.length
+        ? await supabase.from('classroom_members').select('student_id, profile:profiles!student_id(full_name), classroom:classrooms!classroom_id(name)').in('classroom_id', roomIds).eq('status', 'approved')
+        : { data: [], error: null };
+    if (membersResult.error)
+        throw membersResult.error;
+    const members = (membersResult.data ?? []);
+    pageContent.innerHTML = `
+		<section class="performance-page" aria-labelledby="teacher-title">
+			<header class="performance-heading"><div><p class="section-label">ÁREA DO PROFESSOR</p><h2 id="teacher-title">Painel do Professor</h2><p>Publique conteúdos, organize turmas e acompanhe seus alunos.</p></div></header>
+			<div class="performance-details-grid">
+				<section class="performance-panel"><h3>Publicar conteúdo</h3><p>Envie um novo material ou resumo.</p><form class="classroom-chat-form" data-teacher-content-form><input name="title" placeholder="Título" required><input name="subject" placeholder="Disciplina" required><select name="content_type"><option value="material">Material</option><option value="summary">Resumo</option></select><textarea name="description" placeholder="Conteúdo" required></textarea><button type="submit">Publicar</button></form><div>${contents.length ? contents.map((content) => `<article class="material-card"><span class="material-subject">${escapeHtml(content.content_type === 'summary' ? 'Resumo' : 'Material')} · ${escapeHtml(content.subject)}</span><h3>${escapeHtml(content.title)}</h3><p>${escapeHtml(content.description)}</p></article>`).join('') : '<p class="empty-state">Nenhum conteúdo publicado.</p>'}</div></section>
+				<section class="performance-panel"><h3>Minhas salas</h3><p>Crie turmas e compartilhe o código.</p><form class="classroom-chat-form" data-teacher-room-form><input name="name" placeholder="Nome da turma" required><input name="subject" placeholder="Disciplina" required><button type="submit">Criar sala</button></form><div class="classroom-room-list">${rooms.length ? rooms.map((room) => `<div class="classroom-room-option"><strong>${escapeHtml(room.name)}</strong><span>${escapeHtml(room.subject)} · Código ${escapeHtml(room.join_code)}</span><a href="#classroom" data-page="classroom">Abrir sala</a></div>`).join('') : '<p class="empty-state">Nenhuma sala criada.</p>'}</div></section>
+				<section class="performance-panel"><h3>Agenda da turma</h3><p>Agende aulas, atividades e prazos.</p><form class="classroom-chat-form" data-teacher-event-form><select name="classroom_id" required>${rooms.map((room) => `<option value="${room.id}">${escapeHtml(room.name)}</option>`).join('')}</select><input name="title" placeholder="Título do evento" required><select name="event_type"><option value="class">Aula</option><option value="activity">Atividade</option><option value="deadline">Prazo</option></select><input name="starts_at" type="datetime-local" required><button type="submit">Agendar</button></form></section>
+				<section class="performance-panel"><h3>Desempenho</h3><p>Abra uma sala para verificar frequência, notas e conquistas por aluno.</p><a class="home-primary-link" href="#classroom" data-page="classroom">Gerenciar turmas</a></section>
+				<section class="performance-panel performance-achievements"><h3>Alunos das minhas turmas</h3><p>${members.length} aluno(s) aprovado(s).</p>${members.length ? `<ul class="performance-achievement-list">${members.map((member) => `<li><span class="performance-medal" aria-hidden="true">👤</span><span><strong>${escapeHtml(member.profile?.full_name ?? 'Aluno')}</strong><small>${escapeHtml(member.classroom?.name ?? 'Turma')}</small></span><a href="#performance" data-page="performance">Desempenho</a></li>`).join('')}</ul>` : '<p class="empty-state">Nenhum aluno aprovado ainda.</p>'}</section>
+			</div>
+		</section>
+	`;
+    pageContent.querySelector('[data-teacher-content-form]')?.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        const data = new FormData(event.currentTarget);
+        const result = await supabase.from('teacher_contents').insert({ teacher_id: authData.user.id, title: String(data.get('title')).trim(), subject: String(data.get('subject')).trim(), content_type: String(data.get('content_type')), description: String(data.get('description')).trim() });
+        if (result.error)
+            throw result.error;
+        await renderTeacherDashboard();
+    });
+    pageContent.querySelector('[data-teacher-room-form]')?.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        const data = new FormData(event.currentTarget);
+        const result = await supabase.from('classrooms').insert({ teacher_id: authData.user.id, name: String(data.get('name')).trim(), subject: String(data.get('subject')).trim() });
+        if (result.error)
+            throw result.error;
+        await renderTeacherDashboard();
+    });
+    pageContent.querySelector('[data-teacher-event-form]')?.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        const data = new FormData(event.currentTarget);
+        const result = await supabase.from('agenda_events').insert({ classroom_id: String(data.get('classroom_id')), created_by: authData.user.id, title: String(data.get('title')).trim(), event_type: String(data.get('event_type')), starts_at: new Date(String(data.get('starts_at'))).toISOString() });
+        if (result.error)
+            throw result.error;
+        event.currentTarget.reset();
+    });
+}
+async function renderPerformanceFromDatabase() {
+    if (!pageContent)
+        return;
+    const { data: userData, error: userError } = await supabase.auth.getUser();
+    if (userError || !userData.user) {
+        pageContent.innerHTML = '<section class="performance-page"><div class="performance-demo-notice" role="status">Entre na sua conta para acessar seu desempenho.</div></section>';
+        return;
+    }
+    async function renderTeacherDashboardLegacy() {
+        if (!pageContent)
+            return;
+        const { data: authData, error: authError } = await supabase.auth.getUser();
+        if (authError || !authData.user || currentUserRole !== 'teacher') {
+            pageContent.innerHTML = '<section class="performance-page"><div class="performance-demo-notice" role="alert">Esta área é exclusiva para professores.</div></section>';
+            return;
+        }
+        const [roomsResult, contentsResult] = await Promise.all([
+            supabase.from('classrooms').select('id, name, subject, join_code').eq('teacher_id', authData.user.id).order('created_at', { ascending: false }),
+            supabase.from('teacher_contents').select('id, title, subject, content_type, description').eq('teacher_id', authData.user.id).order('created_at', { ascending: false }),
+        ]);
+        if (roomsResult.error)
+            throw roomsResult.error;
+        if (contentsResult.error)
+            throw contentsResult.error;
+        const rooms = roomsResult.data ?? [];
+        const contents = contentsResult.data ?? [];
+        pageContent.innerHTML = `
+			<section class="performance-page" aria-labelledby="teacher-title">
+				<header class="performance-heading"><div><p class="section-label">ÁREA DO PROFESSOR</p><h2 id="teacher-title">Painel do Professor</h2><p>Publique conteúdos, organize turmas e acompanhe seus alunos.</p></div></header>
+				<div class="performance-details-grid">
+					<section class="performance-panel"><h3>Publicar conteúdo</h3><p>Envie um novo material ou resumo para os alunos.</p>
+						<form class="classroom-chat-form" data-teacher-content-form>
+							<input name="title" placeholder="Título" maxlength="120" required>
+							<input name="subject" placeholder="Disciplina" maxlength="50" required>
+							<select name="content_type"><option value="material">Material</option><option value="summary">Resumo</option></select>
+							<textarea name="description" placeholder="Conteúdo" required></textarea>
+							<button type="submit">Publicar</button>
+						</form>
+						<div data-teacher-content-list>${contents.length ? contents.map((content) => `<article class="material-card"><span class="material-subject">${escapeHtml(content.content_type === 'summary' ? 'Resumo' : 'Material')} · ${escapeHtml(content.subject)}</span><h3>${escapeHtml(content.title)}</h3><p>${escapeHtml(content.description)}</p></article>`).join('') : '<p class="empty-state">Nenhum conteúdo publicado.</p>'}</div>
+					</section>
+					<section class="performance-panel"><h3>Minhas salas</h3><p>Crie turmas e compartilhe o código com seus alunos.</p>
+						<form class="classroom-chat-form" data-teacher-room-form><input name="name" placeholder="Nome da turma" required><input name="subject" placeholder="Disciplina" required><button type="submit">Criar sala</button></form>
+						<div class="classroom-room-list">${rooms.length ? rooms.map((room) => `<div class="classroom-room-option"><strong>${escapeHtml(room.name)}</strong><span>${escapeHtml(room.subject)} · Código ${escapeHtml(room.join_code)}</span><a href="#classroom" data-page="classroom" data-classroom-id="${room.id}">Abrir sala</a></div>`).join('') : '<p class="empty-state">Nenhuma sala criada.</p>'}</div>
+					</section>
+					<section class="performance-panel"><h3>Agenda da turma</h3><p>Agende aulas, atividades e prazos.</p>
+						<form class="classroom-chat-form" data-teacher-event-form><select name="classroom_id" required>${rooms.map((room) => `<option value="${room.id}">${escapeHtml(room.name)}</option>`).join('')}</select><input name="title" placeholder="Título do evento" required><select name="event_type"><option value="class">Aula</option><option value="activity">Atividade</option><option value="deadline">Prazo</option></select><input name="starts_at" type="datetime-local" required><button type="submit">Agendar</button></form>
+					</section>
+					<section class="performance-panel"><h3>Desempenho dos alunos</h3><p>Abra uma sala para administrar alunos, frequência, notas e conquistas.</p><a class="home-primary-link" href="#classroom" data-page="classroom">Gerenciar turmas</a></section>
+				</div>
+			</section>
+		`;
+        pageContent.querySelector('[data-teacher-content-form]')?.addEventListener('submit', async (event) => {
+            event.preventDefault();
+            const data = new FormData(event.currentTarget);
+            const result = await supabase.from('teacher_contents').insert({
+                teacher_id: authData.user.id,
+                title: String(data.get('title')).trim(),
+                subject: String(data.get('subject')).trim(),
+                content_type: String(data.get('content_type')),
+                description: String(data.get('description')).trim(),
+            });
+            if (result.error)
+                throw result.error;
+            await renderTeacherDashboard();
+        });
+        pageContent.querySelector('[data-teacher-room-form]')?.addEventListener('submit', async (event) => {
+            event.preventDefault();
+            const data = new FormData(event.currentTarget);
+            const result = await supabase.from('classrooms').insert({ teacher_id: authData.user.id, name: String(data.get('name')).trim(), subject: String(data.get('subject')).trim() });
+            if (result.error)
+                throw result.error;
+            await renderTeacherDashboard();
+        });
+        pageContent.querySelector('[data-teacher-event-form]')?.addEventListener('submit', async (event) => {
+            event.preventDefault();
+            const data = new FormData(event.currentTarget);
+            const result = await supabase.from('agenda_events').insert({
+                classroom_id: String(data.get('classroom_id')),
+                created_by: authData.user.id,
+                title: String(data.get('title')).trim(),
+                event_type: String(data.get('event_type')),
+                starts_at: new Date(String(data.get('starts_at'))).toISOString(),
+            });
+            if (result.error)
+                throw result.error;
+            event.currentTarget.reset();
+        });
+    }
+    const [submissionsResult, attendanceResult, achievementsResult] = await Promise.all([
+        supabase.from('assignment_submissions').select('score, assignments(max_score, title)').eq('student_id', userData.user.id),
+        supabase.from('attendance').select('present').eq('student_id', userData.user.id),
+        supabase.from('student_achievements').select('awarded_at, achievements(name, description, icon)').eq('student_id', userData.user.id).order('awarded_at', { ascending: false }),
+    ]);
+    if (submissionsResult.error)
+        throw submissionsResult.error;
+    if (attendanceResult.error)
+        throw attendanceResult.error;
+    if (achievementsResult.error)
+        throw achievementsResult.error;
+    const submissions = (submissionsResult.data ?? []);
+    const attendance = (attendanceResult.data ?? []);
+    const achievements = (achievementsResult.data ?? []);
+    const graded = submissions.filter((submission) => submission.score !== null && submission.assignments);
+    const average = graded.length
+        ? graded.reduce((sum, submission) => sum + ((submission.score ?? 0) / submission.assignments.max_score) * 10, 0) / graded.length
+        : null;
+    const present = attendance.filter((record) => record.present).length;
+    const attendanceRate = attendance.length ? Math.round((present / attendance.length) * 100) : null;
+    pageContent.innerHTML = `
+		<section class="performance-page" aria-labelledby="performance-title">
+			<header class="performance-heading"><div><p class="section-label">ACOMPANHAMENTO ESCOLAR</p><h2 id="performance-title">Painel de Desempenho</h2><p>Dados registrados nas suas atividades e aulas.</p></div></header>
+			<div class="performance-demo-notice" role="status">${graded.length || attendance.length || achievements.length ? 'Informações carregadas do banco de dados.' : 'Ainda não existem dados de desempenho registrados.'}</div>
+			<section class="performance-stat-grid" aria-label="Resumo do desempenho">
+				<article class="performance-stat-card"><span class="performance-stat-icon" aria-hidden="true">▤</span><div><p>Média geral</p><strong>${average === null ? '—' : average.toFixed(1)} <small>/ 10</small></strong><span class="performance-stat-detail">${graded.length} atividade(s) avaliadas</span></div></article>
+				<article class="performance-stat-card"><span class="performance-stat-icon" aria-hidden="true">✓</span><div><p>Frequência</p><strong>${attendanceRate === null ? '—' : attendanceRate}<small>${attendanceRate === null ? '' : '%'}</small></strong><span class="performance-stat-detail">${present} presença(s) em ${attendance.length} aula(s)</span></div></article>
+				<article class="performance-stat-card"><span class="performance-stat-icon" aria-hidden="true">✦</span><div><p>Atividades avaliadas</p><strong>${graded.length}</strong><span class="performance-stat-detail">Registros no banco</span></div></article>
+				<article class="performance-stat-card"><span class="performance-stat-icon" aria-hidden="true">♛</span><div><p>Conquistas</p><strong>${achievements.length}</strong><span class="performance-stat-detail">Medalhas recebidas</span></div></article>
+			</section>
+			<section class="performance-panel performance-achievements" aria-labelledby="performance-achievements-title">
+				<div class="performance-panel-heading"><div><h3 id="performance-achievements-title">Medalhas e conquistas</h3><p>Reconhecendo cada passo</p></div></div>
+				${achievements.length ? `<ul class="performance-achievement-list">${achievements.map((item) => `<li><span class="performance-medal" aria-hidden="true">${escapeHtml(item.achievements?.icon ?? '★')}</span><span><strong>${escapeHtml(item.achievements?.name ?? 'Conquista')}</strong><small>${escapeHtml(item.achievements?.description ?? '')}</small></span><span class="performance-earned">Conquistada</span></li>`).join('')}</ul>` : '<p class="empty-state">Nenhuma conquista registrada.</p>'}
+			</section>
+		</section>
+	`;
+}
+async function renderClassroom() {
+    if (!pageContent)
+        return;
+    if (classroomChannel) {
+        await supabase.removeChannel(classroomChannel);
+        classroomChannel = null;
+    }
+    pageContent.innerHTML = `
+		<section class="classroom-page" aria-labelledby="classroom-title">
+			<header class="classroom-heading">
+				<div>
+					<p class="section-label">SALAS DE AULA</p>
+					<h2 id="classroom-title">Minhas salas</h2>
+					<p>Entre na turma correta ou crie uma nova sala para seus alunos.</p>
+				</div>
+				<span class="classroom-demo-badge">Salas conectadas</span>
+			</header>
+			<div class="classroom-demo-notice" data-classroom-status role="status">Carregando suas salas...</div>
+			<div class="classroom-layout classroom-room-layout">
+				<section class="classroom-call" aria-labelledby="classroom-list-title">
+					<div class="classroom-panel-heading">
+						<div><h3 id="classroom-list-title">Turmas disponíveis</h3><p>Você só verá as salas das quais participa.</p></div>
+					</div>
+					<div data-classroom-list class="classroom-room-list"></div>
+					<form data-classroom-join class="classroom-chat-form">
+						<label for="classroom-join-code">Entrar com código</label>
+						<div><input id="classroom-join-code" name="code" maxlength="8" placeholder="Ex.: A1B2C3D4" required><button type="submit">Entrar</button></div>
+					</form>
+					<form data-classroom-create class="classroom-chat-form" hidden>
+						<label for="classroom-name">Criar sala (professor)</label>
+						<input id="classroom-name" name="name" maxlength="80" placeholder="Nome da turma" required>
+						<input name="subject" maxlength="50" placeholder="Disciplina" required>
+						<button type="submit">Criar sala</button>
+					</form>
+				</section>
+				<section class="classroom-board" data-classroom-selected aria-live="polite">
+					<h3>Selecione uma sala</h3>
+					<p>As atividades e a conversa da turma aparecerão aqui.</p>
+				</section>
+			</div>
+		</section>
+	`;
+    const status = pageContent.querySelector('[data-classroom-status]');
+    const list = pageContent.querySelector('[data-classroom-list]');
+    if (!status || !list)
+        throw new Error('A interface de salas não foi encontrada.');
+    const { data: userData, error: userError } = await supabase.auth.getUser();
+    if (userError || !userData.user) {
+        status.textContent = 'Entre na sua conta para acessar as salas.';
+        return;
+    }
+    const userId = userData.user.id;
+    const { data: profile, error: profileError } = await supabase
+        .from('profiles')
+        .select('role')
+        .eq('id', userId)
+        .maybeSingle();
+    if (profileError) {
+        console.error('Não foi possível carregar o perfil do usuário.', profileError);
+        status.textContent = 'Não foi possível identificar seu tipo de conta.';
+        return;
+    }
+    let classrooms = [];
+    if (profile?.role === 'teacher') {
+        const result = await supabase.from('classrooms').select('*').eq('teacher_id', userId).order('created_at', { ascending: false });
+        if (result.error)
+            throw result.error;
+        classrooms = result.data ?? [];
+        const createForm = pageContent.querySelector('[data-classroom-create]');
+        if (createForm)
+            createForm.hidden = false;
+    }
+    else {
+        const memberships = await supabase.from('classroom_members').select('classroom_id').eq('student_id', userId);
+        if (memberships.error)
+            throw memberships.error;
+        const ids = (memberships.data ?? []).map((membership) => membership.classroom_id);
+        if (ids.length) {
+            const result = await supabase.from('classrooms').select('*').in('id', ids).order('created_at', { ascending: false });
+            if (result.error)
+                throw result.error;
+            classrooms = result.data ?? [];
+        }
+    }
+    status.textContent = classrooms.length ? 'Escolha uma turma para entrar na sala.' : 'Você ainda não participa de nenhuma turma.';
+    list.innerHTML = classrooms.length
+        ? classrooms.map((classroom) => `
+			<button type="button" class="classroom-room-option${classroom.id === selectedClassroomId ? ' is-active' : ''}" data-classroom-id="${classroom.id}">
+				<strong>${escapeHtml(classroom.name)}</strong><span>${escapeHtml(classroom.subject)} · Código ${escapeHtml(classroom.join_code)}</span>
+			</button>
+		`).join('')
+        : '<p class="empty-state">Nenhuma sala encontrada.</p>';
+    const selectClassroom = async (classroom) => {
+        selectedClassroomId = classroom.id;
+        sessionStorage.setItem('selected-classroom', classroom.id);
+        pageContent.querySelectorAll('[data-classroom-id]').forEach((button) => {
+            button.classList.toggle('is-active', button.dataset.classroomId === classroom.id);
+        });
+        const selected = pageContent.querySelector('[data-classroom-selected]');
+        if (!selected)
+            return;
+        const memberResult = await supabase.from('classroom_members').select('student_id').eq('classroom_id', classroom.id);
+        const messagesResult = await supabase
+            .from('classroom_messages')
+            .select('id, classroom_id, author_id, body, created_at, author:profiles!author_id(full_name)')
+            .eq('classroom_id', classroom.id)
+            .order('created_at', { ascending: true })
+            .limit(100);
+        if (memberResult.error || messagesResult.error)
+            throw memberResult.error ?? messagesResult.error;
+        const messages = (messagesResult.data ?? []);
+        selected.innerHTML = `
+			<div class="classroom-panel-heading"><div><h3>${escapeHtml(classroom.name)}</h3><p>${escapeHtml(classroom.subject)} · Código ${escapeHtml(classroom.join_code)}</p></div><span class="classroom-chat-count">${(memberResult.data ?? []).length + 1} participantes</span></div>
+			<p class="classroom-room-help">Compartilhe o código da sala apenas com os alunos desta turma.</p>
+			<div class="classroom-chat-messages" data-classroom-messages>${messages.map((message) => `<div class="classroom-message"><strong>${escapeHtml(message.author?.full_name ?? 'Aluno')} <time>${new Intl.DateTimeFormat('pt-BR', { hour: '2-digit', minute: '2-digit' }).format(new Date(message.created_at))}</time></strong><p>${escapeHtml(message.body)}</p></div>`).join('')}</div>
+			<form class="classroom-chat-form" data-classroom-chat><input name="message" maxlength="300" placeholder="Escreva uma mensagem..." required><button type="submit">Enviar</button></form>
+		`;
+        pageContent.querySelector('[data-classroom-chat]')?.addEventListener('submit', async (event) => {
+            event.preventDefault();
+            const form = event.currentTarget;
+            if (!(form instanceof HTMLFormElement))
+                return;
+            const input = form.elements.namedItem('message');
+            if (!(input instanceof HTMLInputElement) || !input.value.trim())
+                return;
+            const result = await supabase.from('classroom_messages').insert({ classroom_id: classroom.id, author_id: userId, body: input.value.trim() });
+            if (result.error) {
+                console.error('Não foi possível enviar a mensagem.', result.error);
+                return;
+            }
+            input.value = '';
+            await selectClassroom(classroom);
+        });
+        classroomChannel = supabase.channel(`classroom-${classroom.id}`)
+            .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'classroom_messages', filter: `classroom_id=eq.${classroom.id}` }, () => {
+            void selectClassroom(classroom);
+        })
+            .subscribe();
+    };
+    pageContent.querySelectorAll('[data-classroom-id]').forEach((button) => {
+        button.addEventListener('click', () => {
+            const classroom = classrooms.find((item) => item.id === button.dataset.classroomId);
+            if (classroom)
+                void selectClassroom(classroom);
+        });
+    });
+    pageContent.querySelector('[data-classroom-join]')?.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        const form = event.currentTarget;
+        if (!(form instanceof HTMLFormElement))
+            return;
+        const input = form.elements.namedItem('code');
+        if (!(input instanceof HTMLInputElement))
+            return;
+        const result = await supabase.rpc('join_classroom', { classroom_code: input.value });
+        if (result.error) {
+            status.textContent = result.error.message.includes('inválido') ? 'Código de sala inválido.' : 'Não foi possível entrar na sala.';
+            return;
+        }
+        input.value = '';
+        await renderClassroom();
+    });
+    pageContent.querySelector('[data-classroom-create]')?.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        const form = event.currentTarget;
+        if (!(form instanceof HTMLFormElement))
+            return;
+        const formData = new FormData(form);
+        const result = await supabase.from('classrooms').insert({
+            teacher_id: userId,
+            name: String(formData.get('name') ?? '').trim(),
+            subject: String(formData.get('subject') ?? '').trim(),
+        }).select().single();
+        if (result.error) {
+            console.error('Não foi possível criar a sala.', result.error);
+            status.textContent = 'Não foi possível criar a sala.';
+            return;
+        }
+        form.reset();
+        await renderClassroom();
+    });
+    if (selectedClassroomId) {
+        const selectedClassroom = classrooms.find((classroom) => classroom.id === selectedClassroomId);
+        if (selectedClassroom)
+            await selectClassroom(selectedClassroom);
+    }
+}
 function isSubjectFilter(value) {
     return value !== undefined && categories.some((category) => category === value);
 }
@@ -101,9 +711,47 @@ function renderMaterialCards(items, showSummary = false) {
 				</div>
 				<h3>${material.title}</h3>
 				<p${descriptionClass}>${description}</p>
+				<button class="home-primary-link material-details-button" type="button" data-content-details="${escapeHtml(material.title)}">Ver detalhes</button>
 			</article>
 		`;
     }).join('');
+}
+function renderPublishedCards(items) {
+    return items.map((content) => `
+		<article class="material-card">
+			<div class="material-card-meta"><span class="material-subject">${escapeHtml(content.subject)}</span><span class="material-format">${content.content_type === 'summary' ? 'Resumo' : 'Material'}</span></div>
+			<h3>${escapeHtml(content.title)}</h3>
+			<p>${escapeHtml((content.description ?? '').slice(0, 150))}${(content.description ?? '').length > 150 ? '...' : ''}</p>
+			<button class="home-primary-link material-details-button" type="button" data-published-content-id="${escapeHtml(content.id)}">Ver detalhes</button>
+		</article>
+	`).join('');
+}
+function attachContentDetails() {
+    if (!pageContent)
+        return;
+    pageContent.querySelectorAll('[data-content-details]').forEach((button) => {
+        button.addEventListener('click', () => {
+            const material = materials.find((item) => item.title === button.dataset.contentDetails);
+            if (material)
+                showContentDetails(material.title, material.subject, material.summary, null, null);
+        });
+    });
+    pageContent.querySelectorAll('[data-published-content-id]').forEach((button) => {
+        button.addEventListener('click', () => {
+            const content = publishedContents.find((item) => item.id === button.dataset.publishedContentId);
+            if (content)
+                showContentDetails(content.title, content.subject, content.description ?? '', content.attachment_url, content.attachment_name);
+        });
+    });
+}
+function showContentDetails(title, subject, description, attachmentUrl, attachmentName) {
+    const modal = document.createElement('dialog');
+    modal.className = 'content-modal';
+    modal.innerHTML = `<article class="content-details"><div class="content-modal-heading"><div><p class="section-label">${escapeHtml(subject)}</p><h3>${escapeHtml(title)}</h3></div><button type="button" class="modal-close" aria-label="Fechar">×</button></div><div class="content-details-body">${escapeHtml(description).replace(/\n/g, '<br>')}</div>${attachmentUrl ? `<a class="home-primary-link" href="${escapeHtml(attachmentUrl)}" target="_blank" rel="noopener noreferrer" download>${escapeHtml(attachmentName ?? 'Baixar arquivo')}</a>` : ''}</article>`;
+    document.body.append(modal);
+    modal.querySelector('.modal-close')?.addEventListener('click', () => modal.close());
+    modal.addEventListener('close', () => modal.remove(), { once: true });
+    modal.showModal();
 }
 function setTheme(theme) {
     document.documentElement.dataset.theme = theme;
@@ -162,33 +810,41 @@ function setSubjectMenuOpen(picker, isOpen) {
     options?.setAttribute('aria-hidden', String(!isOpen));
     options?.toggleAttribute('inert', !isOpen);
 }
-function renderMaterials() {
+async function renderMaterials() {
     if (!pageContent)
         return;
+    await loadPublishedContents();
     const filteredMaterials = getFilteredMaterials((material) => `${material.title} ${material.subject} ${material.description}`);
+    const filteredPublished = publishedContents.filter((content) => content.content_type === 'material' && (activeCategory === 'Todos' || content.subject === activeCategory) && `${content.title} ${content.subject} ${content.description ?? ''}`.toLocaleLowerCase('pt-BR').includes(searchQuery.trim().toLocaleLowerCase('pt-BR')));
     const list = pageContent.querySelector('[data-material-list]');
     const count = pageContent.querySelector('[data-material-count]');
     if (!list || !count)
         return;
-    const resultLabel = filteredMaterials.length === 1 ? 'material encontrado' : 'materiais encontrados';
-    count.textContent = `${filteredMaterials.length} ${resultLabel}`;
-    list.innerHTML = filteredMaterials.length
-        ? renderMaterialCards(filteredMaterials)
+    const total = filteredMaterials.length + filteredPublished.length;
+    const resultLabel = total === 1 ? 'material encontrado' : 'materiais encontrados';
+    count.textContent = `${total} ${resultLabel}`;
+    list.innerHTML = total
+        ? `${renderMaterialCards(filteredMaterials)}${renderPublishedCards(filteredPublished)}`
         : '<p class="empty-state">Nenhum material encontrado. Tente outro termo ou disciplina.</p>';
+    attachContentDetails();
 }
-function renderSummaries() {
+async function renderSummaries() {
     if (!pageContent)
         return;
+    await loadPublishedContents();
     const filteredMaterials = getFilteredMaterials((material) => `${material.title} ${material.subject} ${material.summary}`);
+    const filteredPublished = publishedContents.filter((content) => content.content_type === 'summary' && (activeCategory === 'Todos' || content.subject === activeCategory) && `${content.title} ${content.subject} ${content.description ?? ''}`.toLocaleLowerCase('pt-BR').includes(searchQuery.trim().toLocaleLowerCase('pt-BR')));
     const list = pageContent.querySelector('[data-summary-list]');
     const count = pageContent.querySelector('[data-summary-count]');
     if (!list || !count)
         return;
-    const resultLabel = filteredMaterials.length === 1 ? 'resumo encontrado' : 'resumos encontrados';
-    count.textContent = `${filteredMaterials.length} ${resultLabel}`;
-    list.innerHTML = filteredMaterials.length
-        ? renderMaterialCards(filteredMaterials, true)
+    const total = filteredMaterials.length + filteredPublished.length;
+    const resultLabel = total === 1 ? 'resumo encontrado' : 'resumos encontrados';
+    count.textContent = `${total} ${resultLabel}`;
+    list.innerHTML = total
+        ? `${renderMaterialCards(filteredMaterials, true)}${renderPublishedCards(filteredPublished)}`
         : '<p class="empty-state">Nenhum resumo encontrado. Tente outro termo ou disciplina.</p>';
+    attachContentDetails();
 }
 function renderPage(page) {
     if (!pageContent)
@@ -209,6 +865,15 @@ function renderPage(page) {
             link.removeAttribute('aria-current');
         }
     });
+    if (page === 'classroom') {
+        void renderClassroom().catch((error) => {
+            console.error('Erro ao carregar as salas de aula.', error);
+            const status = document.querySelector('[data-classroom-status]');
+            if (status)
+                status.textContent = 'Não foi possível carregar as salas. Tente novamente.';
+        });
+        return;
+    }
     if (page === 'home') {
         pageContent.innerHTML = `
 			<section class="home-dashboard" aria-labelledby="home-title">
@@ -262,9 +927,25 @@ function renderPage(page) {
 				</aside>
 			</section>
 		`;
+        void loadCurrentProfile().then((profile) => {
+            const heading = pageContent.querySelector('#home-title');
+            if (!heading || !profile)
+                return;
+            const roleLabel = profile.role === 'teacher' ? 'professor(a)' : 'aluno(a)';
+            heading.textContent = profile.fullName
+                ? `Olá, ${profile.fullName}! Você está no espaço do ${roleLabel}.`
+                : `Olá! Você está no espaço do ${roleLabel}.`;
+        });
         return;
     }
     if (page === 'performance') {
+        void renderPerformanceFromDatabase().catch((error) => {
+            console.error('Erro ao carregar o desempenho.', error);
+            if (window.location.hash === pageHashes.performance) {
+                pageContent.innerHTML = '<section class="performance-page"><div class="performance-demo-notice" role="alert">Não foi possível carregar o desempenho. Tente novamente.</div></section>';
+            }
+        });
+        return;
         pageContent.innerHTML = `
 			<section class="performance-page" aria-labelledby="performance-title">
 				<header class="performance-heading">
@@ -349,6 +1030,13 @@ function renderPage(page) {
         return;
     }
     if (page === 'agenda') {
+        void renderAgendaFromDatabase().catch((error) => {
+            console.error('Erro ao carregar a agenda.', error);
+            if (window.location.hash === pageHashes.agenda) {
+                pageContent.innerHTML = '<section class="agenda-page"><div class="agenda-demo-notice" role="alert">Não foi possível carregar a agenda. Tente novamente.</div></section>';
+            }
+        });
+        return;
         const formatAgendaDate = (daysFromToday) => {
             const date = new Date();
             date.setDate(date.getDate() + daysFromToday);
@@ -436,7 +1124,7 @@ function renderPage(page) {
 		`;
         return;
     }
-    if (page === 'classroom') {
+    if (window.location.hash === '#classroom' && pageContent) {
         pageContent.innerHTML = `
 			<section class="classroom-page" aria-labelledby="classroom-title">
 				<header class="classroom-heading">
@@ -797,8 +1485,10 @@ function renderPage(page) {
                     }
                     status.textContent = 'Login realizado com sucesso!';
                     form.reset();
-                    window.history.pushState(null, '', pageHashes.home);
-                    renderPage('home');
+                    await loadCurrentProfile();
+                    const initialPage = currentUserRole === 'teacher' ? 'summaries' : 'home';
+                    window.history.pushState(null, '', pageHashes[initialPage]);
+                    renderPage(initialPage);
                     setMobileMenuOpen(false);
                     return;
                 }
@@ -831,11 +1521,11 @@ function renderPage(page) {
                     throw new Error('O Supabase não retornou o usuário criado.');
                 }
                 if (data.session) {
-                    const { error: profileError } = await supabase.from('profiles').insert({
+                    const { error: profileError } = await supabase.from('profiles').upsert({
                         id: data.user.id,
                         full_name: fullName,
                         role: 'student',
-                    });
+                    }, { onConflict: 'id' });
                     if (profileError) {
                         console.error('Usuário criado, mas o perfil não foi salvo.', profileError);
                         status.textContent = 'A conta foi criada, mas não foi possível salvar o perfil.';
@@ -896,6 +1586,7 @@ function renderPage(page) {
 			<div class="materials-grid" data-material-list></div>
 		</section>
 	`;
+    attachTeacherContentPublisher(isSummariesPage ? 'summary' : 'material');
     const searchSelector = isSummariesPage ? '[data-summary-search]' : '[data-material-search]';
     const searchInput = pageContent.querySelector(searchSelector);
     searchInput?.addEventListener('input', (event) => {
@@ -1083,5 +1774,9 @@ profilePhotoInput?.addEventListener('change', () => {
 if (savedProfilePhoto?.startsWith('data:image/')) {
     showProfilePhoto(savedProfilePhoto);
 }
+void updateUserIdentity();
+supabase.auth.onAuthStateChange(() => {
+    void updateUserIdentity();
+});
 setTheme(initialTheme);
 renderPage(pageFromHash());
