@@ -283,10 +283,16 @@ create table if not exists public.teacher_contents (
     teacher_id uuid not null references public.profiles(id) on delete cascade,
     title text not null check (char_length(trim(title)) between 2 and 120),
     subject text not null check (char_length(trim(subject)) between 2 and 50),
-    content_type text not null check (content_type in ('material', 'summary')),
+    content_type text not null check (content_type in ('material', 'summary', 'exercise', 'guide', 'activity')),
     description text not null,
     created_at timestamptz not null default now()
 );
+
+alter table public.teacher_contents
+    drop constraint if exists teacher_contents_content_type_check;
+alter table public.teacher_contents
+    add constraint teacher_contents_content_type_check
+    check (content_type in ('material', 'summary', 'exercise', 'guide', 'activity'));
 
 alter table public.teacher_contents add column if not exists attachment_url text;
 alter table public.teacher_contents add column if not exists attachment_name text;
