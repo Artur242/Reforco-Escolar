@@ -79,12 +79,16 @@
 
     <nav class="sidebar" id="primary-navigation" data-open="false" aria-label="Navegação principal">
         <ul>
-            <li><a href="#home" data-page="home" aria-current="page">Início</a></li>
-            <li><a href="#summaries" data-page="summaries">Resumos</a></li>
-            <li><a href="#materials" data-page="materials">Materiais</a></li>
-            <li><a href="#classroom" data-page="classroom">Sala de Aula</a></li>
-            <li><a href="#agenda" data-page="agenda">Agenda</a></li>
-            <li><a href="#performance" data-page="performance">Painel de Desempenho</a></li>
+            <li data-student-only><a href="#home" data-page="home" aria-current="page">Início</a></li>
+            <li data-student-only><a href="#materials" data-page="materials">Materiais</a></li>
+            <li data-student-only><a href="#classroom" data-page="classroom">Sala de Aula</a></li>
+            <li data-student-only><a href="#agenda" data-page="agenda">Agenda</a></li>
+            <li data-student-only><a href="#performance" data-page="performance">Painel de Desempenho</a></li>
+            <li data-teacher-only hidden><a href="#materials" data-page="materials">Materiais</a></li>
+            <li data-teacher-only hidden><a href="#classroom" data-page="classroom">Salas</a></li>
+            <li data-teacher-only hidden><a href="#agenda" data-page="agenda">Agendas</a></li>
+            <li data-teacher-only hidden><a href="#performance" data-page="performance">Desempenho dos alunos</a></li>
+            <li data-teacher-only hidden><a href="#users" data-page="users">Gerenciar alunos</a></li>
         </ul>
     </nav>
 
